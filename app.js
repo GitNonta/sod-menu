@@ -15,6 +15,7 @@
   const el = {
     intro: $('intro'),
     introSkip: $('introSkip'),
+    themeToggle: $('themeToggle'),
     brandLogo: $('brandLogo'),
     brandSub: $('brandSub'),
     promoNote: $('promoNote'),
@@ -108,6 +109,42 @@
     });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') skip();
+    });
+  }
+
+  /* ── Theme (light default, dark optional, remembered per device) ── */
+  const THEME_KEY = 'sod-theme';
+  const THEME_COLORS = { light: '#f7f6f3', dark: '#131211' };
+
+  function applyTheme(theme) {
+    const next = theme === 'dark' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = next;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', THEME_COLORS[next]);
+    if (el.themeToggle) {
+      const dark = next === 'dark';
+      el.themeToggle.setAttribute('aria-pressed', String(dark));
+      el.themeToggle.setAttribute('aria-label', dark ? 'สลับเป็นโหมดสว่าง' : 'สลับเป็นโหมดมืด');
+    }
+  }
+
+  function wireTheme() {
+    let saved = null;
+    try {
+      saved = localStorage.getItem(THEME_KEY);
+    } catch (_) {
+      /* storage blocked — stay on the default */
+    }
+    applyTheme(saved === 'dark' ? 'dark' : 'light');
+
+    el.themeToggle?.addEventListener('click', () => {
+      const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      try {
+        localStorage.setItem(THEME_KEY, next);
+      } catch (_) {
+        /* ignore */
+      }
     });
   }
 
@@ -438,6 +475,7 @@
 
     state.cards = Array.from(el.body.querySelectorAll('.card'));
     state.blocks = Array.from(el.body.querySelectorAll('.cat-block'));
+    if (state.blocks[0]) setActiveTab(state.blocks[0].id.replace('cat-', ''));
 
     const total = items.length;
     el.status.textContent = `${total} รายการ · เวอร์ชัน ${state.data.version || '1.0.0'}`;
@@ -601,6 +639,7 @@
 
   /* ── Init ──────────────────────────────────────────────────── */
   startIntro();
+  wireTheme();
   wireSlider();
   wireSearch();
   wireToTop();

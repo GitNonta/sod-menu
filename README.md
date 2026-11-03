@@ -11,10 +11,19 @@
 index.html          หน้าหลัก (intro, hero + promo slider, เมนู, footer)
 style.css           ธีม neon dark, mobile-first (360 / 600 / 900px breakpoints)
 app.js              โหลด data/menu.json แล้ว render ทั้งหน้า (ไม่มีข้อมูล hard-code ใน HTML)
+                    + ปุ่มสลับธีม สว่าง/มืด (จำค่าใน localStorage คีย์ `sod-theme`)
 data/menu.json      แหล่งข้อมูลเดียว: หมวด, เมนู, ราคา, โปรโมชัน, version
 images/             รูปสินค้า (พื้นหลังโปร่งใส) + logo.jpg + favicon.png
 .nojekyll           จำเป็นสำหรับ GitHub Pages (ปิด Jekyll)
 ```
+
+## ธีม
+
+มี 2 ธีมมินมอลที่ใช้ layout เดียวกัน: **สว่าง (ค่าเริ่มต้น)** และ **มืด** — สลับได้ที่ปุ่มพระจันทร์/พระอาทิตย์บน header
+ค่าที่เลือกถูกจำใน `localStorage` และถูกอ่านก่อน CSS โหลด จึงไม่กระพริบเวลาโหลดหน้า
+
+- โทเคนสีทั้งหมดอยู่ใน `:root` (สว่าง) และ `:root[data-theme="dark"]` ใน `style.css`
+- ถ้าต้องการเปลี่ยนสีแบรนด์ แก้ที่สองบล็อกนี้ที่เดียว
 
 ## รันดูในเครื่อง
 
