@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.0';
+  const ASSET_VERSION = '1.0.1';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 4200;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

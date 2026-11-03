@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "shop": {
     "name": "SOD! signature",
     "currency": "฿",
@@ -54,42 +54,42 @@
       "cat": "mixer",
       "name": "โค้ก (มิกเซอร์)",
       "price": 60,
-      "image": "images/coke.png"
+      "image": "images/coke.webp"
     },
     {
       "id": "sprite",
       "cat": "mixer",
       "name": "สไปรท์ (มิกเซอร์)",
       "price": 60,
-      "image": "images/sprite.png"
+      "image": "images/sprite.webp"
     },
     {
       "id": "soda-water",
       "cat": "mixer",
       "name": "โซดา / น้ำ (มิกเซอร์)",
       "price": 60,
-      "image": "images/soda-water.png"
+      "image": "images/soda-water.webp"
     },
     {
       "id": "schweppes-manao",
       "cat": "mixer",
       "name": "ชเวปส์ มะนาวโซดา",
       "price": 80,
-      "image": "images/schweppes-manao.png"
+      "image": "images/schweppes-manao.webp"
     },
     {
       "id": "schweppes-tonic",
       "cat": "mixer",
       "name": "ชเวปส์ โทนิค",
       "price": 80,
-      "image": "images/schweppes-tonic.png"
+      "image": "images/schweppes-tonic.webp"
     },
     {
       "id": "krating-daeng",
       "cat": "mixer",
       "name": "กระทิงแดง",
       "price": 60,
-      "image": "images/krating-daeng.png",
+      "image": "images/krating-daeng.webp",
       "note": "ตีความจาก 'กะติ่งแดงขวดละ 60' — ตรวจสอบกับเจ้าของร้าน"
     },
     {
@@ -97,28 +97,28 @@
       "cat": "cooler",
       "name": "สปาย ไวน์คูลเลอร์ Red",
       "price": 160,
-      "image": "images/spy-red.png"
+      "image": "images/spy-red.webp"
     },
     {
       "id": "spy-classic",
       "cat": "cooler",
       "name": "สปาย ไวน์คูลเลอร์ Classic",
       "price": 160,
-      "image": "images/spy-classic.png"
+      "image": "images/spy-classic.webp"
     },
     {
       "id": "singha",
       "cat": "beer",
       "name": "เบียร์สิงห์",
       "price": 180,
-      "image": "images/singha.png"
+      "image": "images/singha.webp"
     },
     {
       "id": "leo",
       "cat": "beer",
       "name": "เบียร์ลีโอ",
       "price": 180,
-      "image": "images/leo.png"
+      "image": "images/leo.webp"
     },
     {
       "id": "beer-mai",
@@ -133,49 +133,49 @@
       "cat": "spirit",
       "name": "แสงโสม 700ml",
       "price": 440,
-      "image": "images/sangsom.png"
+      "image": "images/sangsom.webp"
     },
     {
       "id": "sangsom-1000",
       "cat": "spirit",
       "name": "แสงโสม 1000ml",
       "price": 540,
-      "image": "images/sangsom.png"
+      "image": "images/sangsom.webp"
     },
     {
       "id": "hongthong-700",
       "cat": "spirit",
       "name": "หงส์ทอง 700ml",
       "price": 390,
-      "image": "images/hongthong.png"
+      "image": "images/hongthong.webp"
     },
     {
       "id": "hongthong-1000",
       "cat": "spirit",
       "name": "หงส์ทอง 1000ml",
       "price": 540,
-      "image": "images/hongthong.png"
+      "image": "images/hongthong.webp"
     },
     {
       "id": "blend285-700",
       "cat": "spirit",
       "name": "เบลนด์ 285 700ml",
       "price": 390,
-      "image": "images/blend285.png"
+      "image": "images/blend285.webp"
     },
     {
       "id": "blend285-1000",
       "cat": "spirit",
       "name": "เบลนด์ 285 1000ml",
       "price": 540,
-      "image": "images/blend285.png"
+      "image": "images/blend285.webp"
     },
     {
       "id": "regency-flask",
       "cat": "spirit",
       "name": "รีเจนซี่ VSOP (แบน)",
       "price": null,
-      "image": "images/regency-flask.png",
+      "image": "images/regency-flask.webp",
       "note": "ยังไม่ได้ระบุราคา"
     },
     {
@@ -183,7 +183,7 @@
       "cat": "spirit",
       "name": "รีเจนซี่ บรั่นดี VSOP",
       "price": null,
-      "image": "images/regency-brandy.png",
+      "image": "images/regency-brandy.webp",
       "note": "ยังไม่ได้ระบุราคา"
     },
     {
@@ -191,7 +191,7 @@
       "cat": "spirit",
       "name": "แจ็ค แดเนียลส์ Old No.7",
       "price": null,
-      "image": "images/jack-daniels.png",
+      "image": "images/jack-daniels.webp",
       "note": "ยังไม่ได้ระบุราคา"
     },
     {
@@ -199,7 +199,7 @@
       "cat": "spirit",
       "name": "จอห์นนี่ วอล์กเกอร์ เรดเลเบิ้ล",
       "price": null,
-      "image": "images/johnnie-red.png",
+      "image": "images/johnnie-red.webp",
       "note": "ยังไม่ได้ระบุราคา"
     },
     {
@@ -207,7 +207,7 @@
       "cat": "spirit",
       "name": "จอห์นนี่ วอล์กเกอร์ แบล็กเลเบิ้ล 12",
       "price": null,
-      "image": "images/johnnie-black.png",
+      "image": "images/johnnie-black.webp",
       "note": "ยังไม่ได้ระบุราคา"
     },
     {
@@ -215,28 +215,28 @@
       "cat": "food",
       "name": "ลูกชิ้น (ไม้ละ)",
       "price": 20,
-      "image": "images/meatball-skewers.png"
+      "image": "images/meatball-skewers.webp"
     },
     {
       "id": "fries",
       "cat": "food",
       "name": "เฟรนช์ฟรายส์",
       "price": 60,
-      "image": "images/french-fries.png"
+      "image": "images/french-fries.webp"
     },
     {
       "id": "nuggets",
       "cat": "food",
       "name": "นักเก็ต",
       "price": 60,
-      "image": "images/nuggets.png"
+      "image": "images/nuggets.webp"
     },
     {
       "id": "ice-bucket",
       "cat": "other",
       "name": "น้ำแข็ง (ถัง)",
       "price": 100,
-      "image": "images/ice-bucket.png"
+      "image": "images/ice-bucket.webp"
     },
     {
       "id": "cold-towel",
@@ -251,14 +251,14 @@
       "cat": "other",
       "name": "บุหรี่ L&M แดง (ซองละ)",
       "price": 120,
-      "image": "images/lm-red.png"
+      "image": "images/lm-red.webp"
     },
     {
       "id": "lm-green",
       "cat": "other",
       "name": "บุหรี่ L&M เขียว (ซองละ)",
       "price": 120,
-      "image": "images/lm-green.png"
+      "image": "images/lm-green.webp"
     }
   ],
   "promotions": {
@@ -269,31 +269,31 @@
           "id": "pre-285-700",
           "name": "285 (700ml) + มิกเซอร์ 10 ขวด + น้ำแข็ง 1 ถัง",
           "price": 780,
-          "image": "images/blend285.png"
+          "image": "images/blend285.webp"
         },
         {
           "id": "pre-285-1000",
           "name": "285 (1 ลิตร) + มิกเซอร์ 10 ขวด + น้ำแข็ง 1 ถัง",
           "price": 880,
-          "image": "images/blend285.png"
+          "image": "images/blend285.webp"
         },
         {
           "id": "pre-sangsom-700",
           "name": "แสงโสม (700ml) + มิกเซอร์ 10 ขวด + น้ำแข็ง 1 ถัง",
           "price": 930,
-          "image": "images/sangsom.png"
+          "image": "images/sangsom.webp"
         },
         {
           "id": "pre-sangsom-1000",
           "name": "แสงโสม (1 ลิตร) + มิกเซอร์ 10 ขวด + น้ำแข็ง 1 ถัง",
           "price": 1030,
-          "image": "images/sangsom.png"
+          "image": "images/sangsom.webp"
         },
         {
           "id": "pre-hongthong-1000",
           "name": "หงส์ทอง (1 ลิตร) + มิกเซอร์ 10 ขวด + น้ำแข็ง 1 ถัง",
           "price": 1150,
-          "image": "images/hongthong.png"
+          "image": "images/hongthong.webp"
         }
       ],
       "beer": [
@@ -307,7 +307,7 @@
           "id": "pre-beer-singha-leo-3",
           "name": "เบียร์สิงห์ หรือ ลีโอ 3 ขวด",
           "price": 390,
-          "image": "images/singha.png"
+          "image": "images/singha.webp"
         }
       ]
     },
@@ -318,25 +318,25 @@
           "id": "post-285-700",
           "name": "285 (700ml) + มิกเซอร์ 10 ขวด + น้ำแข็ง 1 ถัง",
           "price": 950,
-          "image": "images/blend285.png"
+          "image": "images/blend285.webp"
         },
         {
           "id": "post-285-1000",
           "name": "285 (1 ลิตร) + มิกเซอร์ 10 ขวด + น้ำแข็ง 1 ถัง",
           "price": 1050,
-          "image": "images/blend285.png"
+          "image": "images/blend285.webp"
         },
         {
           "id": "post-sangsom-700",
           "name": "แสงโสม (700ml) + มิกเซอร์ 10 ขวด + น้ำแข็ง 1 ถัง",
           "price": 1100,
-          "image": "images/sangsom.png"
+          "image": "images/sangsom.webp"
         },
         {
           "id": "post-sangsom-1000",
           "name": "แสงโสม (1 ลิตร) + มิกเซอร์ 10 ขวด + น้ำแข็ง 1 ถัง",
           "price": 1200,
-          "image": "images/sangsom.png"
+          "image": "images/sangsom.webp"
         }
       ],
       "beer": [
@@ -350,13 +350,13 @@
           "id": "post-beer-leo-3",
           "name": "เบียร์ลีโอ 3 ขวด",
           "price": 500,
-          "image": "images/leo.png"
+          "image": "images/leo.webp"
         },
         {
           "id": "post-beer-singha-leo-1",
           "name": "เบียร์สิงห์ / ลีโอ ขวดละ",
           "price": 180,
-          "image": "images/singha.png"
+          "image": "images/singha.webp"
         }
       ]
     }
