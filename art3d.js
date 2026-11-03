@@ -1,12 +1,18 @@
-/* Optional 3D product art (three.js).
+/* Optional 3D product art (three.js + glTF).
    One WebGL canvas is reused and moved into the active slide's stage, so the
-   page never holds more than one context. Everything here is progressive:
-   if WebGL or the module fails, the plain <img> stays as-is. */
+   page never holds more than one context. Products with a model in /models
+   spin 360°; the rest keep the flat cut-out as a depth-layered plane. */
 
-const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js';
 const REST_MAX = 0.5;
 
+// image basename -> model (products without an entry use the cut-out plane)
+const MODELS = {
+  'blend285.webp': 'models/blend285.glb',
+  'sangsom.webp': 'models/sangsom.glb',
+};
+
 let THREE = null;
+let GLTFLoader = null;
 let renderer = null;
 let scene = null;
 let camera = null;
@@ -17,29 +23,30 @@ let meshes = [];
 let currentStage = null;
 let currentSrc = null;
 let currentTexture = null;
+let currentModel = null;
+let mode = 'plane';
 let raf = 0;
+let lastFrame = 0;
 let textures = new Map();
+let modelCache = new Map();
 
 const look = { x: 0, y: 0, targetX: 0, targetY: 0, dragging: false, lastX: 0, lastY: 0 };
 const tilt = { x: 0, y: 0, listening: false };
 
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 
-function sizeOf(stage) {
-  return { w: Math.max(1, stage.clientWidth), h: Math.max(1, stage.clientHeight) };
-}
-
 function resize() {
   if (!renderer || !currentStage) return;
-  const { w, h } = sizeOf(currentStage);
+  const w = Math.max(1, currentStage.clientWidth);
+  const h = Math.max(1, currentStage.clientHeight);
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  layout();
+  layoutPlane();
 }
 
-function layout() {
-  if (!currentTexture?.image || !THREE) return;
+function layoutPlane() {
+  if (mode !== 'plane' || !currentTexture?.image || !THREE) return;
   const aspect = currentTexture.image.width / currentTexture.image.height || 1;
   let h = 1.55;
   let w = h * aspect;
@@ -58,7 +65,7 @@ function getTexture(src) {
   if (!tex) {
     tex = new THREE.TextureLoader().load(
       src,
-      () => layout(),
+      () => layoutPlane(),
       undefined,
       () => console.warn('[art3d] texture failed:', src)
     );
@@ -69,14 +76,25 @@ function getTexture(src) {
   return tex;
 }
 
-function build(src) {
-  currentTexture = getTexture(src);
-  while (meshes.length) {
-    const m = meshes.pop();
-    group.remove(m);
-    m.material.dispose();
+function clearGroup() {
+  while (group.children.length) {
+    const child = group.children.pop();
+    child.traverse?.((n) => {
+      n.geometry?.dispose();
+      if (Array.isArray(n.material)) n.material.forEach((m) => m.dispose());
+      else n.material?.dispose();
+    });
+    group.remove(child);
   }
-  // depth silhouette: a few dark copies behind the front face fake thickness
+  meshes = [];
+  currentModel = null;
+}
+
+function buildPlane(src) {
+  mode = 'plane';
+  clearGroup();
+  currentTexture = getTexture(src);
+
   for (let i = 5; i >= 1; i -= 1) {
     const layer = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
@@ -98,30 +116,81 @@ function build(src) {
   );
   group.add(front);
   meshes.push(front);
-  layout();
+  layoutPlane();
+}
+
+function loadModel(url) {
+  if (!modelCache.has(url)) {
+    const loader = new GLTFLoader();
+    modelCache.set(
+      url,
+      new Promise((resolve, reject) => loader.load(url, resolve, undefined, reject))
+    );
+  }
+  return modelCache.get(url);
+}
+
+function fitModel(root) {
+  const box = new THREE.Box3().setFromObject(root);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  const scale = size.y > 0 ? 1.55 / size.y : 1;
+  root.scale.setScalar(scale);
+  box.setFromObject(root);
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+  root.position.sub(center);
+  return root;
+}
+
+function buildModel(root) {
+  mode = 'model';
+  clearGroup();
+  currentModel = fitModel(root);
+  group.add(currentModel);
+}
+
+function showModel(url, src) {
+  loadModel(url)
+    .then((gltf) => {
+      if (currentSrc !== src) return; // slide changed while loading
+      buildModel(gltf.scene.clone(true));
+    })
+    .catch((err) => {
+      console.warn('[art3d] model failed:', url, err?.message || err);
+    });
 }
 
 function tick(now) {
   raf = requestAnimationFrame(tick);
+  const dt = lastFrame ? Math.min(64, now - lastFrame) : 16;
+  lastFrame = now;
   if (!renderer) return;
 
-  const idleY = Math.sin(now * 0.00055) * 0.16;
-  const idleX = Math.cos(now * 0.00042) * 0.05;
-  const wantY = look.dragging ? look.targetY : look.targetY + tilt.y + idleY;
-  const wantX = look.dragging ? look.targetX : look.targetX + tilt.x + idleX;
-
-  look.y += (clamp(wantY, -REST_MAX, REST_MAX) - look.y) * 0.12;
-  look.x += (clamp(wantX, -REST_MAX, REST_MAX) - look.x) * 0.12;
+  if (mode === 'model') {
+    // real model: free 360° spin, drag steers it, idle keeps it turning
+    if (!look.dragging) look.targetY += dt * 0.00035;
+    look.y += (look.targetY - look.y) * 0.12;
+    look.x += (clamp(look.targetX + tilt.x, -0.35, 0.35) - look.x) * 0.12;
+  } else {
+    const idleY = Math.sin(now * 0.00055) * 0.16;
+    const idleX = Math.cos(now * 0.00042) * 0.05;
+    const wantY = look.dragging ? look.targetY : look.targetY + tilt.y + idleY;
+    const wantX = look.dragging ? look.targetX : look.targetX + tilt.x + idleX;
+    look.y += (clamp(wantY, -REST_MAX, REST_MAX) - look.y) * 0.12;
+    look.x += (clamp(wantX, -REST_MAX, REST_MAX) - look.x) * 0.12;
+  }
 
   group.rotation.y = look.y;
   group.rotation.x = look.x;
-  group.position.y = Math.sin(now * 0.0007) * 0.012;
+  group.position.y = mode === 'model' ? 0 : Math.sin(now * 0.0007) * 0.012;
 
   renderer.render(scene, camera);
 }
 
 function start() {
   if (raf || document.hidden) return;
+  lastFrame = 0;
   raf = requestAnimationFrame(tick);
 }
 
@@ -143,7 +212,6 @@ function enableTilt() {
     );
     tilt.listening = true;
   };
-  // iOS needs an explicit permission prompt from a user gesture
   if (typeof window.DeviceOrientationEvent.requestPermission === 'function') {
     window.DeviceOrientationEvent.requestPermission()
       .then((state) => {
@@ -166,7 +234,8 @@ function wireInput() {
   });
   canvas.addEventListener('pointermove', (e) => {
     if (!look.dragging) return;
-    look.targetY += (e.clientX - look.lastX) * 0.01;
+    const k = mode === 'model' ? 0.012 : 0.01;
+    look.targetY += (e.clientX - look.lastX) * k;
     look.targetX += (e.clientY - look.lastY) * 0.01;
     look.lastX = e.clientX;
     look.lastY = e.clientY;
@@ -174,7 +243,6 @@ function wireInput() {
   const release = () => {
     look.dragging = false;
     look.targetX = 0;
-    look.targetY = 0;
     canvas.classList.remove('is-dragging');
   };
   canvas.addEventListener('pointerup', release);
@@ -187,7 +255,8 @@ function wireInput() {
 
 export async function init() {
   if (renderer) return true;
-  THREE = await import(/* @vite-ignore */ THREE_URL);
+  THREE = await import('three');
+  ({ GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js'));
 
   canvas = document.createElement('canvas');
   canvas.className = 'art3d-canvas';
@@ -207,7 +276,16 @@ export async function init() {
   group = new THREE.Group();
   scene.add(group);
 
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x6b6157, 2.1));
+  const key = new THREE.DirectionalLight(0xffffff, 2.4);
+  key.position.set(2.4, 3.2, 3.6);
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0xffe6c9, 1.2);
+  rim.position.set(-3, 1.4, -2.4);
+  scene.add(rim);
+
   wireInput();
+  canvas.__art3d = { look, get mode() { return mode; } };
   return true;
 }
 
@@ -220,7 +298,14 @@ export function show(stage, src) {
   resize();
   if (currentSrc !== src) {
     currentSrc = src;
-    build(src);
+    const base = src.split('/').pop();
+    const modelUrl = MODELS[base];
+    if (modelUrl) {
+      buildPlane(src); // instant stand-in while the model loads
+      showModel(modelUrl, src);
+    } else {
+      buildPlane(src);
+    }
   }
   start();
 }
