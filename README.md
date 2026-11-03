@@ -1,0 +1,63 @@
+# SOD! signature — เว็บเมนูร้าน (GitHub Pages)
+
+เว็บเมนูแบบ static (HTML + CSS + vanilla JS, ไม่มี build step) สำหรับร้าน **SOD! signature (โสด ซิกเนเจอร์)**
+ออกแบบ mobile/tablet-first มีอนิเมชันเปิดหน้า, สไลเดอร์โปรโมชัน ก่อนเที่ยงคืน / หลังเที่ยงคืน และรายการเมนูแยกหมวด
+
+## โครงสร้างไฟล์
+
+```
+index.html          หน้าหลัก (intro, hero + promo slider, เมนู, footer)
+style.css           ธีม neon dark, mobile-first (360 / 600 / 900px breakpoints)
+app.js              โหลด data/menu.json แล้ว render ทั้งหน้า (ไม่มีข้อมูล hard-code ใน HTML)
+data/menu.json      แหล่งข้อมูลเดียว: หมวด, เมนู, ราคา, โปรโมชัน, version
+images/             รูปสินค้า (พื้นหลังโปร่งใส) + logo.jpg + favicon.png
+.nojekyll           จำเป็นสำหรับ GitHub Pages (ปิด Jekyll)
+```
+
+## รันดูในเครื่อง
+
+```bash
+cd menu
+python3 -m http.server 8123
+# เปิด http://127.0.0.1:8123/
+```
+
+> ต้องเสิร์ฟผ่าน http (ไม่ใช่เปิดไฟล์ `index.html` ตรง ๆ) เพราะเบราว์เซอร์บล็อก `fetch()` บน `file://`
+
+## แก้เมนู / ราคา
+
+แก้ที่ `data/menu.json` ที่เดียว แล้ว **บวกเลข `version`** (เช่น `1.0.0` → `1.0.1`) และบวก `ASSET_VERSION` ใน `app.js`
+บรรทัดบนสุดให้ตรงกัน — เบราว์เซอร์จะดึง JSON ใหม่และไม่ติดแคช
+
+- `price: null` → แสดง “สอบถามราคา”
+- `image: null` → แสดงไอคอนอิโมจิของหมวดนั้น
+- ฟิลด์ `note` เป็นบันทึกภายในสำหรับเจ้าของร้าน **ไม่ถูกแสดงบนเว็บ**
+
+## เปิดเว็บจริงบน GitHub Pages
+
+1. สร้าง repo ใหม่ (เช่นชื่อ `menu`) แล้ว push ไฟล์ทั้งหมดในโฟลเดอร์นี้ขึ้น `main`
+   (ทุกไฟล์ต้องอยู่ที่ root ของ repo ไม่ใช่ในโฟลเดอร์ย่อย)
+   ```bash
+   git remote add origin https://github.com/<username>/menu.git
+   git push -u origin main
+   ```
+2. ไปที่ repo → **Settings → Pages → Build and deployment**
+   - **Source:** Deploy from a branch
+   - **Branch:** `main` / **folder:** `/ (root)` → **Save**
+3. รอ 1–2 นาที เว็บจะอยู่ที่ `https://<username>.github.io/menu/`
+4. อัปเดตเมนูครั้งต่อไป: แก้ `data/menu.json` + เพิ่ม `version` → commit → push (ไม่ต้องแก้โค้ด)
+
+## สิ่งที่ยังต้องยืนยันกับเจ้าของร้าน (จากข้อมูลถอดเสียง)
+
+- ชื่อจริงของ “เบียร์ มาย” (ในไฟล์ยังขึ้นว่า `เบียร์ 'มาย' (ยืนยันชื่อ)`) และยังไม่มีรูปสินค้า
+- ราคา Regency VSOP, Jack Daniel's, Johnnie Walker Red/Black (ยังเป็น `null` → “สอบถามราคา”)
+- แสงโสม 1000ml และหงส์ทอง 1000ml ราคา 540 เท่ากันตามที่ให้มา
+- “กะติ่งแดง 60” ตีความเป็น **กระทิงแดง** และ “ข้าวเย็น” ตีความเป็น **ผ้าเย็น**
+- บุหรี่ L&M: กฎหมายไทยจำกัดการโฆษณา/แสดงสินค้ายาสูบ — ถ้าไม่ต้องการโชว์รูป ให้ตั้ง `"image": null`
+
+## Performance / Accessibility
+
+- รูปทุกใบ `loading="lazy"` + กำหนด `width/height` กัน layout shift, ฟอนต์โหลดแบบไม่บล็อกการ render
+- เคารพ `prefers-reduced-motion` (ปิดอนิเมชัน/autoplay ทั้งหมด)
+- ปุ่มและช่องแตะทุกจุด ≥ 44px, มี `:focus-visible`, มี `alt` ของรูปเป็นชื่อเมนู
+- รูปต้นฉบับยังมีขนาดใหญ่ (รวม ~4.9 MB) หากต้องการ Lighthouse สูงขึ้นให้ย่อรูปที่ `images/` ให้กว้าง ≤ 900px และบีบอัด

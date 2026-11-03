@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>SOD! signature — โสด ซิกเนเจอร์ | เมนู & โปรโมชัน</title>
+  <meta name="description" content="เมนูเครื่องดื่ม อาหารทานเล่น และโปรโมชันก่อนเที่ยงคืน/หลังเที่ยงคืน ของร้าน SOD! signature (โสด ซิกเนเจอร์)" />
+  <meta name="theme-color" content="#050816" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" type="image/png" href="./images/favicon.png" />
+  <link rel="apple-touch-icon" href="./images/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;900&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;900&display=swap" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;900&display=swap" /></noscript>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <!-- ── Intro animation (skippable) ───────────────────────────── -->
+  <div class="intro" id="intro" role="presentation">
+    <div class="intro__bg" aria-hidden="true"></div>
+    <div class="intro__stage">
+      <span class="intro__spark intro__spark--1" aria-hidden="true"></span>
+      <span class="intro__spark intro__spark--2" aria-hidden="true"></span>
+      <span class="intro__spark intro__spark--3" aria-hidden="true"></span>
+      <img class="intro__logo" src="./images/logo.jpg" alt="" width="140" height="140" />
+      <p class="intro__name">SOD! <span>signature</span></p>
+      <p class="intro__line">โสด ซิกเนเจอร์ · เมนู &amp; โปรโมชัน</p>
+    </div>
+    <button class="intro__skip" id="introSkip" type="button">ข้าม ›</button>
+  </div>
+
+  <a class="skip-link" href="#menu">ข้ามไปที่เมนู</a>
+
+  <header class="site-header">
+    <div class="wrap site-header__inner">
+      <div class="brand">
+        <img class="brand__logo" id="brandLogo" src="./images/logo.jpg" alt="" width="44" height="44" />
+        <span class="brand__text">
+          <strong class="brand__name">SOD! signature</strong>
+          <span class="brand__sub" id="brandSub">โสด ซิกเนเจอร์</span>
+        </span>
+      </div>
+      <a class="site-header__cta" href="#menu">ดูเมนู</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- ── Hero: promo slider ──────────────────────────────────── -->
+    <section class="hero" id="hero" aria-labelledby="promoTitle">
+      <div class="hero__bg" id="heroBg" aria-hidden="true"></div>
+      <div class="hero__shade" aria-hidden="true"></div>
+
+      <div class="wrap hero__inner">
+        <div class="hero__intro">
+          <p class="hero__kicker">SOD! signature · โสด ซิกเนเจอร์</p>
+          <h1 class="hero__title" id="promoTitle">โปรโมชันคืนนี้</h1>
+          <p class="hero__note" id="promoNote">เลือกช่วงเวลา แล้วเลือกเซ็ตที่ใช่</p>
+        </div>
+
+        <div class="promo">
+          <div class="promo__bar">
+            <div class="switch" role="group" aria-label="เลือกช่วงเวลาโปรโมชัน">
+              <button class="switch__btn is-active" id="tabBefore" type="button" aria-pressed="true" aria-controls="promoSlider">ก่อนเที่ยงคืน</button>
+              <button class="switch__btn" id="tabAfter" type="button" aria-pressed="false" aria-controls="promoSlider">หลังเที่ยงคืน</button>
+            </div>
+            <p class="promo__label" id="promoLabel" aria-live="polite"></p>
+          </div>
+
+          <div class="slider" id="promoSlider" role="group" aria-roledescription="carousel" aria-label="โปรโมชัน">
+            <div class="slider__track" id="promoTrack" tabindex="0" role="group" aria-label="สไลด์โปรโมชัน เลื่อนซ้ายขวาได้"></div>
+            <button class="slider__nav slider__nav--prev" id="promoPrev" type="button" aria-label="โปรโมชันก่อนหน้า">‹</button>
+            <button class="slider__nav slider__nav--next" id="promoNext" type="button" aria-label="โปรโมชันถัดไป">›</button>
+            <div class="slider__dots" id="promoDots" role="group" aria-label="เลือกสไลด์"></div>
+          </div>
+        </div>
+
+        <a class="hero__cta" href="#menu">ดูเมนูทั้งหมด</a>
+      </div>
+    </section>
+
+    <!-- ── Menu ────────────────────────────────────────────────── -->
+    <section class="menu" id="menu" aria-labelledby="menuTitle">
+      <div class="wrap">
+        <div class="menu__head">
+          <h2 class="menu__title" id="menuTitle">เมนูร้าน</h2>
+          <div class="search">
+            <span class="search__icon" aria-hidden="true">⌕</span>
+            <input class="search__input" id="searchInput" type="search" placeholder="ค้นหาเมนู…" aria-label="ค้นหาเมนู" autocomplete="off" />
+            <button class="search__clear" id="searchClear" type="button" aria-label="ล้างคำค้นหา" hidden>✕</button>
+          </div>
+        </div>
+
+        <p class="menu__status" id="menuStatus" role="status"></p>
+        <p class="menu__error" id="menuError" hidden></p>
+
+        <nav class="tabs" id="catTabs" aria-label="หมวดหมู่เมนู"></nav>
+
+        <div class="menu__body" id="menuBody"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div class="site-footer__brand">
+        <img src="./images/favicon.png" alt="" width="40" height="40" loading="lazy" />
+        <p>
+          <strong>SOD! signature</strong>
+          <span id="footerSub">โสด ซิกเนเจอร์</span>
+        </p>
+      </div>
+      <p class="site-footer__fine">
+        ราคานี้รวม/ไม่รวม VAT — โปรดสอบถามพนักงาน (ราคาอาจเปลี่ยนแปลงได้)<br />
+        <span id="footerMeta"></span>
+      </p>
+    </div>
+  </footer>
+
+  <button class="to-top" id="toTop" type="button" aria-label="กลับขึ้นด้านบน" hidden>↑</button>
+  <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
+
+  <script src="./app.js" defer></script>
+</body>
+</html>
