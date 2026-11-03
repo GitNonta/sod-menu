@@ -74,6 +74,9 @@
     mode: 'before_midnight',
     slideIndex: 0,
     slides: [],
+    promoSlides: [],
+    introDone: false,
+    scrollLockUntil: 0,
     autoplayId: null,
     pausedUntil: 0,
     query: '',
@@ -88,6 +91,12 @@
       if (!el.intro || el.intro.classList.contains('is-done')) return;
       el.intro.classList.add('is-done');
       setTimeout(() => el.intro.remove(), 700);
+      // let the promo motion graphics start when they are actually visible
+      state.introDone = true;
+      if (state.slides.length) {
+        activateSlide(state.slideIndex, true, true);
+        startAutoplay();
+      }
     };
     const timer = setTimeout(finish, reduceMotion ? 500 : 2200);
     const skip = () => {
@@ -161,9 +170,17 @@
       : `<div class="slide__icon">${iconMarkup('spirit')}</div>`;
     const price =
       slide.price === null || slide.price === undefined
-        ? '<p class="slide__price">สอบถามราคา</p>'
-        : `<p class="slide__price">${THB(slide.price)}<small>เซ็ต</small></p>`;
+        ? '<p class="slide__price"><span class="slide__price-num">สอบถามราคา</span></p>'
+        : `<p class="slide__price"><span class="slide__price-num">${THB(slide.price)}</span><small>เซ็ต</small></p>`;
     return `<article class="slide" aria-label="${escapeAttr(slide.name)}">
+      <div class="slide__fx" aria-hidden="true">
+        <span class="slide__ring slide__ring--1"></span>
+        <span class="slide__ring slide__ring--2"></span>
+        <span class="slide__blob"></span>
+        <span class="slide__spark slide__spark--1"></span>
+        <span class="slide__spark slide__spark--2"></span>
+        <span class="slide__spark slide__spark--3"></span>
+      </div>
       <div class="slide__text">
         <span class="slide__tag">${state.mode === 'before_midnight' ? 'ก่อนเที่ยงคืน' : 'หลังเที่ยงคืน'}</span>
         <h3 class="slide__name">${escapeHTML(slide.name)}</h3>
@@ -197,12 +214,51 @@
       });
     });
 
+    state.promoSlides = sets;
     state.slides = Array.from(el.track.children);
     state.slideIndex = 0;
     el.track.scrollTo({ left: 0, behavior: 'auto' });
     syncDots();
-    startAutoplay();
+    activateSlide(0, state.introDone);
+    if (state.introDone) startAutoplay();
     setModeChrome();
+  }
+
+  /* ── Motion graphics ───────────────────────────────────────── */
+  function animatePrice(node, value) {
+    if (reduceMotion || typeof value !== 'number') return;
+    const duration = 650;
+    const start = performance.now();
+    node.textContent = THB(0);
+    const tick = (now) => {
+      const p = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      node.textContent = THB(Math.round(value * eased));
+      if (p < 1) requestAnimationFrame(tick);
+      else node.textContent = THB(value);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  function activateSlide(index, withCount = true, replay = false) {
+    const slide = state.slides[index];
+    state.slides.forEach((s, i) => {
+      if (i === index) return;
+      s.classList.remove('is-active');
+    });
+    if (!slide) return;
+    if (replay && slide.classList.contains('is-active')) {
+      slide.classList.remove('is-active');
+      void slide.offsetWidth; // restart the CSS entrance animations
+    }
+    slide.classList.add('is-active');
+
+    const num = slide.querySelector('.slide__price-num');
+    const price = state.promoSlides[index]?.price;
+    if (num && typeof price === 'number') {
+      if (withCount) animatePrice(num, price);
+      else num.textContent = THB(price);
+    }
   }
 
   function setModeChrome() {
@@ -234,14 +290,17 @@
     const count = state.slides.length;
     if (!count) return;
     state.slideIndex = ((index % count) + count) % count;
+    state.scrollLockUntil = Date.now() + (reduceMotion ? 60 : 480);
     const target = state.slides[state.slideIndex];
     const offset = target.getBoundingClientRect().left - el.track.getBoundingClientRect().left + el.track.scrollLeft;
     el.track.scrollTo({ left: offset, behavior: reduceMotion ? 'auto' : 'smooth' });
     syncDots();
+    activateSlide(state.slideIndex, userInitiated);
     if (userInitiated) pauseAutoplay(6000);
   }
 
   function onSliderScroll() {
+    if (Date.now() < state.scrollLockUntil) return;
     const left = el.track.scrollLeft;
     let best = 0;
     let bestDelta = Infinity;
@@ -257,6 +316,7 @@
     if (best !== state.slideIndex) {
       state.slideIndex = best;
       syncDots();
+      activateSlide(best, true);
     }
   }
 
