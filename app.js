@@ -194,25 +194,82 @@
   }
 
   /* ── Promotions ────────────────────────────────────────────── */
-  function slideHTML(slide) {
-    const art = slide.image
-      ? `<img class="slide__art" src="./${slide.image.replace(/^\.\//, '')}" alt="${escapeAttr(slide.name)}" width="180" height="180" loading="lazy" decoding="async" data-icon="spirit" />`
+  const MIXER_SRCS = ['./images/coke.webp', './images/sprite.webp', './images/soda-water.webp'];
+
+  /* "285 (700ml) + มิกเซอร์ 10 ขวด + น้ำแข็ง 1 ถัง" */
+  function setParts(name) {
+    const m = name.match(/^(.*?)\s*\+\s*มิกเซอร์\s*(\d+)\s*ขวด\s*\+\s*น้ำแข็ง\s*(\d+)\s*ถัง/);
+    return m ? { bottle: m[1], mixers: Number(m[2]), ice: Number(m[3]) } : null;
+  }
+
+  function pageKind(slide) {
+    if (setParts(slide.name)) return 'spirit';
+    if (/ขวดละ/.test(slide.name)) return 'bottle';
+    if (/เบียร์/.test(slide.name)) return 'beer';
+    return 'bottle';
+  }
+
+  function stageHTML(slide) {
+    const src = slide.image ? './' + slide.image.replace(/^\.\//, '') : null;
+    const art = src
+      ? `<img class="slide__art" src="${src}" alt="${escapeAttr(slide.name)}" width="180" height="360" loading="lazy" decoding="async" data-icon="spirit" />`
       : `<div class="slide__icon">${iconMarkup('spirit')}</div>`;
-    const stage = `<div class="slide__stage">
-        <span class="slide__ground" aria-hidden="true"></span>
-        ${art}
-      </div>`;
+    return `<div class="slide__stage set__stage">
+      <span class="slide__ground" aria-hidden="true"></span>
+      ${art}
+    </div>`;
+  }
+
+  function setHTML(slide, kind) {
+    const src = slide.image ? './' + slide.image.replace(/^\.\//, '') : './images/singha.webp';
+    const mixers =
+      kind === 'spirit'
+        ? `<ul class="set__mixers" aria-hidden="true">${[0, 1, 2, 3, 4]
+            .map(
+              (i) =>
+                `<li class="set__mixer" style="--i:${i}"><img src="${MIXER_SRCS[i % MIXER_SRCS.length]}" alt="" width="60" height="180" loading="lazy" decoding="async" /></li>`
+            )
+            .join('')}</ul>
+           <img class="set__ice" src="./images/ice-bucket.webp" alt="น้ำแข็ง ${setParts(slide.name)?.ice || 1} ถัง" width="140" height="140" loading="lazy" decoding="async" style="--i:5" />`
+        : '';
+    const beers =
+      kind === 'beer'
+        ? `<ul class="set__beers" aria-hidden="true">${[0, 1, 2]
+            .map((i) => `<li class="set__beer" style="--i:${i}"><img src="${src}" alt="" width="70" height="210" loading="lazy" decoding="async" /></li>`)
+            .join('')}</ul>`
+        : '';
+    return `<div class="set set--${kind}">
+      <span class="set__glow" aria-hidden="true"></span>
+      ${beers}
+      <div class="set__bottle">${stageHTML(slide)}</div>
+      ${mixers}
+    </div>`;
+  }
+
+  function chipsHTML(slide) {
+    const parts = setParts(slide.name);
+    if (!parts) return '';
+    return `<ul class="slide__chips">
+      <li>มิกเซอร์ ${parts.mixers} ขวด</li>
+      <li>น้ำแข็ง ${parts.ice} ถัง</li>
+    </ul>`;
+  }
+
+  function slideHTML(slide, index) {
+    const kind = pageKind(slide);
     const price =
       slide.price === null || slide.price === undefined
         ? '<p class="slide__price"><span class="slide__price-num">สอบถามราคา</span></p>'
         : `<p class="slide__price"><span class="slide__price-num">${THB(slide.price)}</span><small>เซ็ต</small></p>`;
-    return `<article class="slide" aria-label="${escapeAttr(slide.name)}">
+    const total = state.promoSlides.length || 1;
+    return `<article class="slide slide--${kind}" role="group" aria-roledescription="สไลด์" aria-label="${index + 1} จาก ${total}">
       <div class="slide__text">
         <span class="slide__tag">${state.mode === 'before_midnight' ? 'ก่อนเที่ยงคืน' : 'หลังเที่ยงคืน'}</span>
         <h3 class="slide__name">${escapeHTML(slide.name)}</h3>
         ${price}
+        ${chipsHTML(slide)}
       </div>
-      ${stage}
+      ${setHTML(slide, kind)}
     </article>`;
   }
 
@@ -221,11 +278,12 @@
     if (!promo || !el.track) return;
 
     const sets = [...(promo.sets || []), ...(promo.beer || [])];
-    el.track.innerHTML = sets.map((s) => slideHTML(s)).join('');
+    state.promoSlides = sets;
+    el.track.innerHTML = sets.map((s, i) => slideHTML(s, i)).join('');
     el.dots.innerHTML = sets
       .map(
         (s, i) =>
-          `<button class="slider__dot" type="button" aria-label="สไลด์ ${i + 1}: ${escapeAttr(s.name)}"></button>`
+          `<button class="slider__dot" type="button" aria-label="หน้า ${i + 1}: ${escapeAttr(s.name)}"></button>`
       )
       .join('');
 
@@ -240,10 +298,9 @@
       });
     });
 
-    state.promoSlides = sets;
     state.slides = Array.from(el.track.children);
     state.slideIndex = 0;
-    el.track.scrollTo({ left: 0, behavior: 'auto' });
+    el.track.scrollTo({ top: 0, behavior: 'auto' });
     syncDots();
     activateSlide(0, state.introDone);
     if (state.introDone) startAutoplay();
@@ -343,8 +400,8 @@
     state.slideIndex = ((index % count) + count) % count;
     state.scrollLockUntil = Date.now() + (reduceMotion ? 60 : 480);
     const target = state.slides[state.slideIndex];
-    const offset = target.getBoundingClientRect().left - el.track.getBoundingClientRect().left + el.track.scrollLeft;
-    el.track.scrollTo({ left: offset, behavior: reduceMotion ? 'auto' : 'smooth' });
+    const offset = target.getBoundingClientRect().top - el.track.getBoundingClientRect().top + el.track.scrollTop;
+    el.track.scrollTo({ top: offset, behavior: reduceMotion ? 'auto' : 'smooth' });
     syncDots();
     activateSlide(state.slideIndex, userInitiated);
     if (userInitiated) pauseAutoplay(6000);
@@ -352,12 +409,12 @@
 
   function onSliderScroll() {
     if (Date.now() < state.scrollLockUntil) return;
-    const left = el.track.scrollLeft;
+    const top = el.track.scrollTop;
     let best = 0;
     let bestDelta = Infinity;
     state.slides.forEach((s, i) => {
       const delta = Math.abs(
-        s.getBoundingClientRect().left - el.track.getBoundingClientRect().left + el.track.scrollLeft - left
+        s.getBoundingClientRect().top - el.track.getBoundingClientRect().top + el.track.scrollTop - top
       );
       if (delta < bestDelta) {
         bestDelta = delta;
@@ -407,10 +464,10 @@
       el.track.addEventListener(evt, () => pauseAutoplay(3500), { passive: true })
     );
     el.track.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowRight') {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
         e.preventDefault();
         goToSlide(state.slideIndex + 1);
-      } else if (e.key === 'ArrowLeft') {
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
         e.preventDefault();
         goToSlide(state.slideIndex - 1);
       }
