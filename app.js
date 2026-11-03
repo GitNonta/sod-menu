@@ -40,6 +40,35 @@
 
   const THB = (n) => '฿' + Number(n).toLocaleString('th-TH');
 
+  /* Inline SVG placeholders — used when an item has no image (or it fails to load).
+     No emoji, no raster assets: icons inherit the neon accent via currentColor. */
+  const svg = (body) =>
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
+
+  const ICONS = {
+    mixer: svg(
+      '<path d="M6 4h12l-1.7 15.2A2 2 0 0 1 14.3 21H9.7a2 2 0 0 1-2-1.8L6 4Z"/><path d="M5.2 8.5h13.6"/><path d="M14.5 4 17 1"/><circle cx="10" cy="12.5" r="0.7"/><circle cx="13.2" cy="15.5" r="0.7"/>'
+    ),
+    beer: svg(
+      '<path d="M5 7.5h9V19a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7.5Z"/><path d="M14 10h2.5a2.5 2.5 0 0 1 0 5H14"/><path d="M5 11h9"/><path d="M5 7.5c0-2.2 2-3.5 4.5-3.5S14 5.3 14 7.5"/>'
+    ),
+    spirit: svg(
+      '<path d="M10 2h4v3.6c0 1 .4 1.9 1.1 2.6l.5.5c.9.9 1.4 2.1 1.4 3.4V20a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-7.9c0-1.3.5-2.5 1.4-3.4l.5-.5c.7-.7 1.1-1.6 1.1-2.6V2Z"/><path d="M7 14h10"/>'
+    ),
+    cooler: svg(
+      '<path d="M8 3h8c0 4.4-1.8 7.5-4 7.5S8 7.4 8 3Z"/><path d="M12 10.5V20"/><path d="M8.5 21h7"/>'
+    ),
+    food: svg(
+      '<path d="M6 9h12l-1 10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 9Z"/><path d="M9 9V4"/><path d="M12 9V3"/><path d="M15 9V5"/>'
+    ),
+    other: svg(
+      '<path d="M5 7h14l-1.4 12.1A2 2 0 0 1 15.6 21H8.4a2 2 0 0 1-2-1.9L5 7Z"/><path d="M4 7h16"/><path d="M9.5 11.5 12 14l2.5-2.5"/>'
+    ),
+    default: svg('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/>'),
+  };
+
+  const iconMarkup = (key) => ICONS[key] || ICONS.default;
+
   const state = {
     data: null,
     mode: 'before_midnight',
@@ -126,10 +155,10 @@
   }
 
   /* ── Promotions ────────────────────────────────────────────── */
-  function slideHTML(slide, icon) {
+  function slideHTML(slide) {
     const art = slide.image
-      ? `<img class="slide__art" src="./${slide.image.replace(/^\.\//, '')}" alt="${escapeAttr(slide.name)}" width="180" height="180" loading="lazy" decoding="async" data-fallback="${icon}" />`
-      : `<div class="slide__emoji" aria-hidden="true">${icon}</div>`;
+      ? `<img class="slide__art" src="./${slide.image.replace(/^\.\//, '')}" alt="${escapeAttr(slide.name)}" width="180" height="180" loading="lazy" decoding="async" data-icon="spirit" />`
+      : `<div class="slide__icon">${iconMarkup('spirit')}</div>`;
     const price =
       slide.price === null || slide.price === undefined
         ? '<p class="slide__price">สอบถามราคา</p>'
@@ -149,8 +178,7 @@
     if (!promo || !el.track) return;
 
     const sets = [...(promo.sets || []), ...(promo.beer || [])];
-    const icon = '🍾';
-    el.track.innerHTML = sets.map((s) => slideHTML(s, icon)).join('');
+    el.track.innerHTML = sets.map((s) => slideHTML(s)).join('');
     el.dots.innerHTML = sets
       .map(
         (s, i) =>
@@ -163,9 +191,8 @@
     el.track.querySelectorAll('.slide__art').forEach((img) => {
       img.addEventListener('error', () => {
         const box = document.createElement('div');
-        box.className = 'slide__emoji';
-        box.setAttribute('aria-hidden', 'true');
-        box.textContent = img.dataset.fallback || '🍾';
+        box.className = 'slide__icon';
+        box.innerHTML = iconMarkup(img.dataset.icon || 'spirit');
         img.replaceWith(box);
       });
     });
@@ -317,8 +344,8 @@
   function cardHTML(item, cat) {
     const src = item.image ? './' + item.image.replace(/^\.\//, '') : null;
     const media = src
-      ? `<img class="card__img" src="${src}" alt="${escapeAttr(item.name)}" width="320" height="320" loading="lazy" decoding="async" data-fallback="${cat.icon || '🍽️'}" />`
-      : `<span class="card__emoji" aria-hidden="true">${cat.icon || '🍽️'}</span>`;
+      ? `<img class="card__img" src="${src}" alt="${escapeAttr(item.name)}" width="320" height="320" loading="lazy" decoding="async" data-icon="${cat.id}" />`
+      : `<span class="card__icon">${iconMarkup(cat.id)}</span>`;
     const price =
       item.price === null || item.price === undefined
         ? '<p class="card__price card__price--ask">สอบถามราคา</p>'
@@ -361,9 +388,8 @@
     el.body.querySelectorAll('.card__img').forEach((img) => {
       img.addEventListener('error', () => {
         const span = document.createElement('span');
-        span.className = 'card__emoji';
-        span.setAttribute('aria-hidden', 'true');
-        span.textContent = img.dataset.fallback || '🍽️';
+        span.className = 'card__icon';
+        span.innerHTML = iconMarkup(img.dataset.icon);
         img.replaceWith(span);
       });
     });
