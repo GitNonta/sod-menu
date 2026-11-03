@@ -70,6 +70,10 @@ python3 -m http.server 8123
 ## การเคลื่อนไหว (motion)
 
 - รูปสินค้าในสไลด์โปรเป็น **CSS 3D**: มี `perspective` + เงาสัมผัสพื้น (contact shadow) + sway `rotateY/rotateX` เบา ๆ 7.5s
+- **three.js (optional)**: `art3d.js` โหลด three จาก CDN แบบ on-demand หลังหน้าโหลดเสร็จ แล้วแสดงรูปสินค้าเป็น plane 3D บน WebGL canvas **เดียว** ที่ย้ายตามสไลด์ที่ active
+  - ลากซ้าย/ขวาบนรูป = หมุน (มีสปริงกลับที่เดิม), เอียงเครื่อง = เอียงตาม (iOS จะขออนุญาต motion sensor ตอนแตะครั้งแรก)
+  - ถ้า WebGL ใช้ไม่ได้ / โหลด three ไม่สำเร็จ / `prefers-reduced-motion` → ไม่โหลดเลย และใช้รูป `<img>` เดิมแทน
+  - canvas ใช้ `touch-action: pan-y` คือปัดแนวนอนบนตัวรูปจะเป็นการหมุนสินค้า (การปัดสไลด์ให้เริ่มจากพื้นที่อื่นของกา์ด)
 - การ์ดเมนูเอียงแบบ 3D เมื่อ hover (เฉพาะจอ ≥ 900px)
 - สไลด์ที่ไม่ใช่ตัวที่แสดงอยู่จะหยุดอนิเมชัน (`animation-play-state: paused`)
 - `prefers-reduced-motion: reduce` ปิดอนิเมชันและ `transform` ทั้งหมด

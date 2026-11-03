@@ -69,6 +69,9 @@
 
   const iconMarkup = (key) => ICONS[key] || ICONS.default;
 
+  let art3d = null;
+  let art3dStarted = false;
+
   const state = {
     data: null,
     mode: 'before_midnight',
@@ -282,6 +285,31 @@
       if (withCount) animatePrice(num, price);
       else num.textContent = THB(price);
     }
+    syncArt3D();
+  }
+
+  /* ── Optional three.js art (drag / tilt) ───────────────────── */
+  async function setupArt3D() {
+    if (art3dStarted || reduceMotion) return;
+    art3dStarted = true;
+    try {
+      const mod = await import('./art3d.js');
+      await mod.init();
+      art3d = mod;
+      syncArt3D();
+    } catch (err) {
+      art3d = null; // keep the plain <img> art
+      console.warn('[art3d] disabled:', err && err.message);
+    }
+  }
+
+  function syncArt3D() {
+    if (!art3d) return;
+    const slide = state.slides[state.slideIndex];
+    const stage = slide?.querySelector('.slide__stage');
+    const img = slide?.querySelector('.slide__art');
+    if (stage && img) art3d.show(stage, img.getAttribute('src'));
+    else art3d.clear();
   }
 
   function setModeChrome() {
@@ -634,6 +662,7 @@
       renderPromotions();
       renderMenu();
       el.error.hidden = true;
+      setupArt3D();
     } catch (err) {
       console.error('[menu] load failed:', err);
       el.status.textContent = '';
