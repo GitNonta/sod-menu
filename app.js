@@ -15,7 +15,6 @@
   const el = {
     intro: $('intro'),
     introSkip: $('introSkip'),
-    heroBg: $('heroBg'),
     brandLogo: $('brandLogo'),
     brandSub: $('brandSub'),
     promoNote: $('promoNote'),
@@ -145,18 +144,9 @@
   }
 
   function applyShop(shop) {
-    const theme = shop.theme || {};
-    const root = document.documentElement;
-    if (theme.bg) root.style.setProperty('--bg', theme.bg);
-    if (theme.accent_cyan) root.style.setProperty('--cyan', theme.accent_cyan);
-    if (theme.accent_magenta) root.style.setProperty('--magenta', theme.accent_magenta);
-    if (theme.accent_orange) root.style.setProperty('--orange', theme.accent_orange);
-    if (theme.text) root.style.setProperty('--text', theme.text);
-
-    if (shop.logo) {
-      root.style.setProperty('--hero-img', `url("./${shop.logo.replace(/^\.\//, '')}")`);
-      if (el.brandLogo) el.brandLogo.src = './' + shop.logo.replace(/^\.\//, '');
-    }
+    /* Colours live in style.css (minimal light theme) — the neon `shop.theme`
+       values in menu.json are brand reference only, not applied. */
+    if (shop.logo && el.brandLogo) el.brandLogo.src = './' + shop.logo.replace(/^\.\//, '');
     if (shop.name_th && el.brandSub) el.brandSub.textContent = shop.name_th;
     if (shop.name_th && el.footerSub) el.footerSub.textContent = shop.name_th;
     if (shop.midnight_note && el.promoNote) el.promoNote.textContent = shop.midnight_note;
@@ -173,14 +163,6 @@
         ? '<p class="slide__price"><span class="slide__price-num">สอบถามราคา</span></p>'
         : `<p class="slide__price"><span class="slide__price-num">${THB(slide.price)}</span><small>เซ็ต</small></p>`;
     return `<article class="slide" aria-label="${escapeAttr(slide.name)}">
-      <div class="slide__fx" aria-hidden="true">
-        <span class="slide__ring slide__ring--1"></span>
-        <span class="slide__ring slide__ring--2"></span>
-        <span class="slide__blob"></span>
-        <span class="slide__spark slide__spark--1"></span>
-        <span class="slide__spark slide__spark--2"></span>
-        <span class="slide__spark slide__spark--3"></span>
-      </div>
       <div class="slide__text">
         <span class="slide__tag">${state.mode === 'before_midnight' ? 'ก่อนเที่ยงคืน' : 'หลังเที่ยงคืน'}</span>
         <h3 class="slide__name">${escapeHTML(slide.name)}</h3>
@@ -509,22 +491,25 @@
   }
 
   function observeReveal() {
-    if (!('IntersectionObserver' in window) || reduceMotion) {
+    if (reduceMotion) {
       state.cards.forEach((c) => c.classList.add('is-in'));
       return;
     }
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-in');
-            io.unobserve(entry.target);
-          }
-        });
-      },
-      { rootMargin: '0px 0px -8% 0px', threshold: 0.08 }
-    );
-    state.cards.forEach((c) => io.observe(c));
+    let raf = 0;
+    const pass = () => {
+      raf = 0;
+      const limit = window.innerHeight + 80;
+      state.cards.forEach((card) => {
+        if (card.classList.contains('is-in')) return;
+        if (card.getBoundingClientRect().top < limit) card.classList.add('is-in');
+      });
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(pass);
+    };
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule, { passive: true });
+    pass();
   }
 
   function applySearch() {
