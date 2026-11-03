@@ -67,6 +67,13 @@ python3 -m http.server 8123
 - “กะติ่งแดง 60” ตีความเป็น **กระทิงแดง** และ “ข้าวเย็น” ตีความเป็น **ผ้าเย็น**
 - บุหรี่ L&M: กฎหมายไทยจำกัดการโฆษณา/แสดงสินค้ายาสูบ — ถ้าไม่ต้องการโชว์รูป ให้ตั้ง `"image": null`
 
+## การเคลื่อนไหว (motion)
+
+- รูปสินค้าในสไลด์โปรเป็น **CSS 3D**: มี `perspective` + เงาสัมผัสพื้น (contact shadow) + sway `rotateY/rotateX` เบา ๆ 7.5s
+- การ์ดเมนูเอียงแบบ 3D เมื่อ hover (เฉพาะจอ ≥ 900px)
+- สไลด์ที่ไม่ใช่ตัวที่แสดงอยู่จะหยุดอนิเมชัน (`animation-play-state: paused`)
+- `prefers-reduced-motion: reduce` ปิดอนิเมชันและ `transform` ทั้งหมด
+
 ## Performance / Accessibility
 
 - รูปทุกใบ `loading="lazy"` + กำหนด `width/height` กัน layout shift, ฟอนต์โหลดแบบไม่บล็อกการ render

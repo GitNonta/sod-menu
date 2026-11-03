@@ -195,6 +195,10 @@
     const art = slide.image
       ? `<img class="slide__art" src="./${slide.image.replace(/^\.\//, '')}" alt="${escapeAttr(slide.name)}" width="180" height="180" loading="lazy" decoding="async" data-icon="spirit" />`
       : `<div class="slide__icon">${iconMarkup('spirit')}</div>`;
+    const stage = `<div class="slide__stage">
+        <span class="slide__ground" aria-hidden="true"></span>
+        ${art}
+      </div>`;
     const price =
       slide.price === null || slide.price === undefined
         ? '<p class="slide__price"><span class="slide__price-num">สอบถามราคา</span></p>'
@@ -205,7 +209,7 @@
         <h3 class="slide__name">${escapeHTML(slide.name)}</h3>
         ${price}
       </div>
-      ${art}
+      ${stage}
     </article>`;
   }
 
