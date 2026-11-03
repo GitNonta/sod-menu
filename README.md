@@ -1,5 +1,7 @@
 # SOD! signature — เว็บเมนูร้าน (GitHub Pages)
 
+> เว็บจริง: **https://gitnonta.github.io/sod-menu/** · repo: https://github.com/GitNonta/sod-menu
+
 เว็บเมนูแบบ static (HTML + CSS + vanilla JS, ไม่มี build step) สำหรับร้าน **SOD! signature (โสด ซิกเนเจอร์)**
 ออกแบบ mobile/tablet-first มีอนิเมชันเปิดหน้า, สไลเดอร์โปรโมชัน ก่อนเที่ยงคืน / หลังเที่ยงคืน และรายการเมนูแยกหมวด
 
