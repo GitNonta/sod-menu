@@ -7,7 +7,7 @@
   // Bump together with "version" in data/menu.json so browsers drop the cache.
   const ASSET_VERSION = '1.0.1';
   const DATA_URL = './data/menu.json';
-  const AUTOPLAY_MS = 4200;
+  const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const $ = (id) => document.getElementById(id);
@@ -22,6 +22,7 @@
     promoLabel: $('promoLabel'),
     tabBefore: $('tabBefore'),
     tabAfter: $('tabAfter'),
+    deck: $('promoSlider'),
     track: $('promoTrack'),
     dots: $('promoDots'),
     prev: $('promoPrev'),
@@ -82,6 +83,7 @@
     scrollLockUntil: 0,
     autoplayId: null,
     pausedUntil: 0,
+    deckVisible: true,
     query: '',
     cards: [],
     blocks: [],
@@ -458,7 +460,7 @@
 
   function startAutoplay() {
     stopAutoplay();
-    if (reduceMotion || state.slides.length < 2) return;
+    if (reduceMotion || state.deckVisible === false || state.slides.length < 2) return;
     state.autoplayId = setInterval(() => {
       if (document.hidden || Date.now() < state.pausedUntil) return;
       goToSlide(state.slideIndex + 1, false);
@@ -472,6 +474,21 @@
 
   function pauseAutoplay(ms = 5000) {
     state.pausedUntil = Date.now() + ms;
+  }
+
+  /* the deck must not flip pages while it is scrolled out of view */
+  function watchDeck() {
+    if (!el.deck || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        state.deckVisible = entry.isIntersecting && entry.intersectionRatio >= 0.35;
+        if (state.deckVisible && state.introDone) startAutoplay();
+        else stopAutoplay();
+      },
+      { threshold: [0, 0.35, 0.7] }
+    );
+    io.observe(el.deck);
   }
 
   function wireSlider() {
@@ -758,6 +775,7 @@
   /* ── Init ──────────────────────────────────────────────────── */
   startIntro();
   wireTheme();
+  watchDeck();
   wireSlider();
   wireSearch();
   wireToTop();

@@ -415,7 +415,7 @@ a {
 }
 
 .deck__track {
-  height: clamp(390px, 62svh, 580px);
+  height: clamp(440px, 62svh, 580px);
   overflow-y: auto;
   scroll-snap-type: y mandatory;
   scroll-behavior: smooth;
@@ -441,11 +441,12 @@ a {
   line-height: 1;
   box-shadow: var(--shadow-soft);
 }
+/* both arrows sit in the text column's right gutter, never on the product */
 .deck__nav--prev {
   top: 10px;
 }
 .deck__nav--next {
-  bottom: 56px;
+  top: 62px;
 }
 
 .deck__rail {
@@ -1392,6 +1393,19 @@ a {
     transform: translateY(-2px);
     border-color: var(--line-strong);
     box-shadow: var(--shadow-soft);
+  }
+}
+
+/* short screens (small phones, landscape): keep every page fully visible */
+@media (max-height: 700px) {
+  .deck__track {
+    height: clamp(400px, 72svh, 520px);
+  }
+  .slide {
+    padding: 14px 14px 10px;
+  }
+  .set__cluster {
+    --cluster-h: 204px;
   }
 }
 
