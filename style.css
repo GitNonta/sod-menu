@@ -1116,35 +1116,23 @@ a {
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* the photo bleeds to the card edge, so the tile always looks filled */
 .card__media {
   position: relative;
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 2 / 3;
   display: grid;
   place-items: center;
-  border-radius: var(--radius-sm);
+  border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
   background: var(--surface-soft);
-  margin-bottom: 10px;
+  margin: -8px -8px 10px;
   overflow: hidden;
   perspective: 600px;
 }
 
-/* contact shadow keeps the product grounded on the tile */
-.card__media::after {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  left: 14%;
-  right: 14%;
-  bottom: 7px;
-  height: 12px;
-  border-radius: 50%;
-  background: radial-gradient(ellipse at center, var(--ground) 0%, transparent 72%);
-  opacity: 0.5;
-  pointer-events: none;
-}
 
-/* fill the tile edge to edge, then fit the whole product inside it:
-   tall bottles and landscape plates both stay uncropped */
+
+/* the photo owns the whole tile (no inner padding, no letterbox frame):
+   a tall bottle fills it top to bottom, plates fill it side to side */
 .card__img {
   position: absolute;
   inset: 0;
@@ -1152,7 +1140,6 @@ a {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  padding: 10px;
   transform-style: preserve-3d;
 }
 
