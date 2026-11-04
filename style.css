@@ -409,7 +409,7 @@ a {
 /* full-screen deck: one promotion fills the viewport, snapping page by page */
 .deck {
   position: relative;
-  margin-inline: calc(-1 * var(--pad-l)) calc(-1 * var(--pad-r));
+  margin-inline: calc(50% - 50vw);
   height: 100svh;
   height: 100dvh;
   background: var(--surface);
@@ -1333,16 +1333,21 @@ a {
   .hero__inner {
     gap: 22px;
   }
+  /* tablet and up: the deck stays edge-to-edge, only the bar keeps the gutter */
   .promo {
     margin-inline: 0;
-    border: 1px solid var(--line);
-    border-radius: 18px;
-    padding: 14px 14px 6px;
-    box-shadow: var(--shadow-soft);
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+  .promo__bar {
+    padding: 16px var(--pad-l) 12px;
+    justify-content: center;
   }
   .deck {
-    margin-inline: -14px;
-    border-radius: 18px;
+    margin-inline: calc(50% - 50vw);
+    border-radius: 0;
   }
   .deck__track {
     height: 100%;
@@ -1408,8 +1413,9 @@ a {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px;
   }
+  /* full-bleed page, content held to a readable 760px column */
   .slide {
-    padding: 26px;
+    padding: 30px max(26px, calc(50% - 380px));
   }
   .slide__stage {
     width: 186px;
