@@ -316,13 +316,26 @@ a {
 
 /* ── Hero ──────────────────────────────────────────────────── */
 .hero {
-  padding-top: 28px;
+  padding-top: 0;
   padding-bottom: 30px;
 }
 
 .hero__inner {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 18px;
+}
+
+/* landing screen: the promo deck comes first and fills the fold,
+   the heading and the menu link wait below it */
+.hero__inner > .promo {
+  order: -1;
+}
+.hero__intro {
+  order: 1;
+}
+.hero__cta {
+  order: 2;
 }
 
 /* grid children default to min-width:auto (min-content) */
@@ -413,6 +426,8 @@ a {
   margin-inline: calc(50% - 50vw + var(--sbw, 0px) / 2);
   height: 100svh;
   height: 100dvh;
+  /* measured on load so the deck ends exactly at the fold */
+  height: var(--deck-h, 100dvh);
   background: var(--surface);
   border: 0;
   border-radius: 0;
@@ -1404,7 +1419,7 @@ a {
     font-size: 17px;
   }
   .hero {
-    padding-top: 40px;
+    padding-top: 0;
     padding-bottom: 40px;
   }
   .hero__inner {

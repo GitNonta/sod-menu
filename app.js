@@ -14,12 +14,20 @@
 
   /* full-bleed sections size themselves with 100vw, which includes the scrollbar;
      publish its width so their edges land exactly on the viewport edges */
-  function syncScrollbarWidth() {
+  function syncViewportMetrics() {
     const sbw = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
     document.documentElement.style.setProperty('--sbw', sbw + 'px');
+    // the deck owns the first screen: end it exactly at the fold
+    const deck = document.getElementById('promoSlider');
+    if (deck) {
+      const top = deck.getBoundingClientRect().top + window.scrollY;
+      const h = Math.max(340, Math.round(window.innerHeight - top));
+      document.documentElement.style.setProperty('--deck-h', h + 'px');
+    }
   }
-  syncScrollbarWidth();
-  window.addEventListener('resize', syncScrollbarWidth, { passive: true });
+  syncViewportMetrics();
+  window.addEventListener('resize', syncViewportMetrics, { passive: true });
+  window.addEventListener('load', syncViewportMetrics, { once: true });
 
   const el = {
     intro: $('intro'),
@@ -118,7 +126,7 @@
         startAutoplay();
       }
     };
-    const timer = setTimeout(finish, reduceMotion ? 500 : 2200);
+    const timer = setTimeout(finish, reduceMotion ? 400 : 1200);
     const skip = () => {
       clearTimeout(timer);
       finish();
@@ -650,7 +658,14 @@
     el.tabs.querySelectorAll('.tab').forEach((tab) => {
       const active = tab.dataset.cat === id;
       tab.classList.toggle('is-active', active);
-      if (active) tab.scrollIntoView({ inline: 'center', block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+      if (active) {
+        // scroll the tab strip horizontally only — scrollIntoView would drag the page
+        // down to the menu on load and steal the promo's first screen
+        el.tabs.scrollTo({
+          left: tab.offsetLeft - el.tabs.clientWidth / 2 + tab.offsetWidth / 2,
+          behavior: reduceMotion ? 'auto' : 'smooth',
+        });
+      }
     });
   }
 
