@@ -194,7 +194,29 @@
   }
 
   /* ── Promotions ────────────────────────────────────────────── */
-  const MIXER_SRCS = ['./images/coke.webp', './images/sprite.webp', './images/soda-water.webp'];
+  /* the cut-outs already in the package, one of each so the fan looks mixed */
+  const MIXER_SRCS = [
+    './images/coke.webp',
+    './images/sprite.webp',
+    './images/soda-water.webp',
+    './images/schweppes-manao.webp',
+    './images/schweppes-tonic.webp',
+  ];
+
+  /* fan layout of the set graphic: --x is a share of the stage width, --r degrees */
+  const FAN = {
+    spirit: [
+      { x: -34, r: -16, s: 0.8, y: 20 },
+      { x: -22, r: -10, s: 0.9, y: 10 },
+      { x: -10, r: -4, s: 0.98, y: 2 },
+      { x: 2, r: 3, s: 1.02, y: 8 },
+      { x: 14, r: 10, s: 0.93, y: 18 },
+    ],
+    beer: [
+      { x: -20, r: -11, s: 0.93, y: 8 },
+      { x: 20, r: 10, s: 0.93, y: 8 },
+    ],
+  };
 
   /* "285 (700ml) + มิกเซอร์ 10 ขวด + น้ำแข็ง 1 ถัง" */
   function setParts(name) {
@@ -220,29 +242,35 @@
     </div>`;
   }
 
+  function fanHTML(kind, src) {
+    const plan = FAN[kind] || FAN.spirit;
+    const items = plan.map((_, i) =>
+      kind === 'beer' ? src : MIXER_SRCS[i % MIXER_SRCS.length]
+    );
+    return `<ul class="set__fan" aria-hidden="true">${plan
+      .map(
+        (p, i) =>
+          `<li class="set__mixer" style="--i:${i};--x:${p.x}%;--r:${p.r}deg;--s:${p.s};--y:${p.y}px"><img src="${items[i]}" alt="" width="70" height="210" loading="lazy" decoding="async" /></li>`
+      )
+      .join('')}</ul>`;
+  }
+
   function setHTML(slide, kind) {
     const src = slide.image ? './' + slide.image.replace(/^\.\//, '') : './images/singha.webp';
-    const mixers =
+    const ice =
       kind === 'spirit'
-        ? `<ul class="set__mixers" aria-hidden="true">${[0, 1, 2, 3, 4]
-            .map(
-              (i) =>
-                `<li class="set__mixer" style="--i:${i}"><img src="${MIXER_SRCS[i % MIXER_SRCS.length]}" alt="" width="60" height="180" loading="lazy" decoding="async" /></li>`
-            )
-            .join('')}</ul>
-           <img class="set__ice" src="./images/ice-bucket.webp" alt="น้ำแข็ง ${setParts(slide.name)?.ice || 1} ถัง" width="140" height="140" loading="lazy" decoding="async" style="--i:5" />`
-        : '';
-    const beers =
-      kind === 'beer'
-        ? `<ul class="set__beers" aria-hidden="true">${[0, 1, 2]
-            .map((i) => `<li class="set__beer" style="--i:${i}"><img src="${src}" alt="" width="70" height="210" loading="lazy" decoding="async" /></li>`)
-            .join('')}</ul>`
+        ? `<img class="set__ice" src="./images/ice-bucket.webp" alt="น้ำแข็ง ${setParts(slide.name)?.ice || 1} ถัง" width="140" height="140" loading="lazy" decoding="async" />`
         : '';
     return `<div class="set set--${kind}">
-      <span class="set__glow" aria-hidden="true"></span>
-      ${beers}
-      <div class="set__bottle">${stageHTML(slide)}</div>
-      ${mixers}
+      <div class="set__cluster">
+        <span class="set__halo" aria-hidden="true"></span>
+        <span class="set__floor" aria-hidden="true"></span>
+        ${fanHTML(kind, src)}
+        <div class="set__bottle">${stageHTML(slide)}</div>
+        ${ice}
+        <span class="set__shine" aria-hidden="true"></span>
+        <ul class="set__sparks" aria-hidden="true"><li></li><li></li><li></li><li></li></ul>
+      </div>
     </div>`;
   }
 

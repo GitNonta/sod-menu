@@ -530,31 +530,57 @@ a {
   font-size: 0.72rem;
 }
 
-/* ── set composition (bottle + mixers + ice bucket) ────────── */
+/* ── set composition (hero bottle + mixer fan + ice bucket) ── */
 .set {
   position: relative;
   height: 100%;
-  min-height: 190px;
+  min-height: 0;
   display: grid;
-  place-items: end center;
+  place-items: center;
   isolation: isolate;
 }
 
-.set__glow {
+/* one stage holds the whole composition, so it stays centred in the page */
+.set__cluster {
+  position: relative;
+  width: 100%;
+  height: var(--cluster-h, 252px);
+  display: grid;
+  place-items: end center;
+  perspective: 900px;
+  transform-style: preserve-3d;
+}
+
+/* warm light pooled behind the products */
+.set__halo {
   position: absolute;
   z-index: 0;
-  left: -14%;
-  right: -14%;
-  bottom: -18%;
+  left: 2%;
+  right: 2%;
+  bottom: 10px;
   height: 82%;
   border-radius: 50%;
-  background: radial-gradient(closest-side, var(--accent-soft), transparent 74%);
+  background: radial-gradient(closest-side at 50% 64%, var(--accent-soft) 0%, transparent 76%);
   opacity: 0.9;
+}
+
+/* shadow that puts the whole set on the counter */
+.set__floor {
+  position: absolute;
+  z-index: 1;
+  left: 7%;
+  right: 7%;
+  bottom: 2px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, var(--ground) 0%, transparent 70%);
+  opacity: 0.6;
+  filter: blur(3px);
 }
 
 .set__bottle {
   position: relative;
-  z-index: 3;
+  z-index: 4;
   transform-origin: bottom center;
 }
 
@@ -626,82 +652,141 @@ a {
   height: 36px;
 }
 
-/* mixers fan (5 bottles stand in for the 10 included) */
-.set__mixers,
-.set__beers {
+/* five mixers fanned behind the hero bottle.
+   --x is a share of the stage width, --r degrees, --s scale, --y lift */
+.set__fan {
   position: absolute;
-  bottom: 6px;
   z-index: 2;
-  display: flex;
-  align-items: flex-end;
+  inset: 0;
   margin: 0;
   padding: 0;
   list-style: none;
-}
-.set__mixers {
-  left: 0;
-}
-.set__beers {
-  left: 2%;
+  pointer-events: none;
 }
 
-.set__mixer,
-.set__beer {
-  transform-origin: bottom center;
-}
 .set__mixer {
-  width: 46px;
-  margin-left: -20px;
+  position: absolute;
+  left: calc(50% + var(--x, 0%));
+  bottom: var(--y, 4px);
+  width: var(--mixw, 52px);
+  margin: 0;
+  transform-origin: 50% 100%;
+  transform: translateX(-50%) rotate(var(--r, 0deg)) scale(var(--s, 1));
+  filter: drop-shadow(0 6px 9px rgb(0 0 0 / 0.16));
+  will-change: transform;
 }
-.set__beer {
-  width: 58px;
-  margin-left: -26px;
-}
-.set__mixer:first-child,
-.set__beer:first-child {
-  margin-left: 0;
-}
-.set__mixer img,
-.set__beer img {
+
+.set__mixer img {
+  display: block;
   width: 100%;
   height: auto;
-  display: block;
+  transform-origin: 50% 100%;
 }
 
+/* ice bucket in front, right of the bottle */
 .set__ice {
   position: absolute;
-  right: -2%;
-  bottom: 4px;
-  z-index: 2;
-  width: 86px;
+  z-index: 5;
+  right: 0;
+  bottom: 6px;
+  width: var(--icew, 94px);
   height: auto;
+  transform: rotate(-5deg);
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 8px 10px rgb(0 0 0 / 0.2));
+  will-change: transform;
+}
+
+/* light sweep gives the flat cut-outs a photographic sheen */
+.set__shine {
+  position: absolute;
+  z-index: 7;
+  inset: 8% 0 12%;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(102deg, transparent 36%, rgb(255 255 255 / 0.6) 48%, transparent 60%);
+  mix-blend-mode: soft-light;
+}
+
+/* tiny glints of condensation */
+.set__sparks {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+.set__sparks li {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(circle, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0));
+}
+.set__sparks li:nth-child(1) {
+  left: 24%;
+  top: 40%;
+}
+.set__sparks li:nth-child(2) {
+  left: 46%;
+  top: 28%;
+  width: 4px;
+  height: 4px;
+  animation-delay: 1.6s;
+}
+.set__sparks li:nth-child(3) {
+  left: 66%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  animation-delay: 3.1s;
+}
+.set__sparks li:nth-child(4) {
+  left: 84%;
+  top: 34%;
+  width: 4px;
+  height: 4px;
+  animation-delay: 4.4s;
 }
 
 /* entrance + idle motion */
-.slide.is-active .set__glow {
-  animation: glowPulse 6s ease-in-out infinite;
+.slide.is-active .set__halo {
+  animation: glowPulse 6.5s ease-in-out infinite;
+}
+.slide.is-active .set__floor {
+  animation: groundSway 7.5s 1s ease-in-out infinite;
 }
 .slide.is-active .set__mixer {
-  animation: riseIn 0.5s calc(120ms + var(--i) * 70ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fanIn 0.62s calc(140ms + var(--i) * 65ms) cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .slide.is-active .set__mixer img {
-  animation: bobSoft 4.4s calc(var(--i) * 0.35s) ease-in-out infinite;
+  animation: bobSoft 4.6s calc(var(--i) * 0.35s) ease-in-out infinite;
 }
-.slide.is-active .set__beer {
-  animation: riseIn 0.5s calc(110ms + var(--i) * 80ms) cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.slide.is-active .set__beer img {
-  animation: bobSoft 4.8s calc(var(--i) * 0.4s) ease-in-out infinite;
+.slide.is-active .set__bottle {
+  animation: bottleSway 6.4s 0.5s ease-in-out infinite;
 }
 .slide.is-active .set__ice {
-  animation: riseIn 0.55s 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: iceIn 0.6s 460ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    iceSway 5.6s 1.1s ease-in-out infinite;
+}
+.slide.is-active .set__shine {
+  animation: shineSweep 6.8s 1.2s ease-in-out infinite;
+}
+.slide.is-active .set__sparks li {
+  animation: sparkle 5.2s ease-in-out infinite;
 }
 
-.slide:not(.is-active) .set__glow,
+.slide:not(.is-active) .set__halo,
+.slide:not(.is-active) .set__floor,
 .slide:not(.is-active) .set__mixer,
 .slide:not(.is-active) .set__mixer img,
-.slide:not(.is-active) .set__beer,
-.slide:not(.is-active) .set__beer img,
+.slide:not(.is-active) .set__bottle,
+.slide:not(.is-active) .set__ice,
+.slide:not(.is-active) .set__shine,
+.slide:not(.is-active) .set__sparks li,
 .slide:not(.is-active) .slide__art,
 .slide:not(.is-active) .slide__stage .slide__icon,
 .slide:not(.is-active) .slide__ground {
@@ -771,6 +856,46 @@ a {
 @keyframes glowPulse {
   0%, 100% { opacity: 0.55; transform: scale(0.96); }
   50% { opacity: 0.95; transform: scale(1.04); }
+}
+
+/* the fan settles into place: rotate in from a touch further out */
+@keyframes fanIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) rotate(calc(var(--r) * 2.2)) translateY(26px)
+      scale(calc(var(--s) * 0.9));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) rotate(var(--r)) translateY(0) scale(var(--s));
+  }
+}
+
+@keyframes bottleSway {
+  0%, 100% { transform: translateY(0) rotate(-0.6deg); }
+  50% { transform: translateY(-6px) rotate(0.7deg); }
+}
+
+@keyframes iceIn {
+  from { opacity: 0; transform: rotate(-16deg) translateY(18px) scale(0.9); }
+  to { opacity: 1; transform: rotate(-5deg) translateY(0) scale(1); }
+}
+
+@keyframes iceSway {
+  0%, 100% { transform: rotate(-5deg) translateY(0); }
+  50% { transform: rotate(-2.5deg) translateY(-4px); }
+}
+
+@keyframes shineSweep {
+  0% { opacity: 0; transform: translateX(-95%); }
+  14%, 40% { opacity: 0.7; }
+  56%, 100% { opacity: 0; transform: translateX(95%); }
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0.4); }
+  40% { opacity: 0.9; transform: scale(1); }
+  60% { opacity: 0; transform: scale(1.3); }
 }
 
 /* 44px hit area with a small visual dash inside */
@@ -1215,16 +1340,14 @@ a {
     width: 44px;
     height: 44px;
   }
-  .set__mixer {
-    width: 56px;
-    margin-left: -24px;
+  .set__cluster {
+    --cluster-h: 336px;
   }
-  .set__beer {
-    width: 74px;
-    margin-left: -32px;
+  .set__mixer {
+    --mixw: 58px;
   }
   .set__ice {
-    width: 108px;
+    --icew: 108px;
   }
   .grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1266,15 +1389,14 @@ a {
     width: 186px;
     height: 364px;
   }
-  .set__mixer {
-    width: 64px;
-    margin-left: -26px;
+  .set__cluster {
+    --cluster-h: 400px;
   }
-  .set__beer {
-    width: 86px;
+  .set__mixer {
+    --mixw: 66px;
   }
   .set__ice {
-    width: 122px;
+    --icew: 122px;
   }
   .card:hover {
     transform: translateY(-2px);
@@ -1322,12 +1444,12 @@ a {
   .slide__art,
   .slide__icon,
   .slide__ground,
-  .set__mixer,
-  .set__beer,
-  .set__ice,
-  .set__glow,
   .card__img,
   .card__icon {
     transform: none !important;
+  }
+  .set__shine,
+  .set__sparks {
+    display: none;
   }
 }

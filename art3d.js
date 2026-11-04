@@ -253,8 +253,22 @@ function wireInput() {
   document.addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
 }
 
+/* probe first (and release the probe) so three never logs a context error */
+function hasWebGL() {
+  try {
+    const probe = document.createElement('canvas');
+    const gl = probe.getContext('webgl2') || probe.getContext('webgl');
+    if (!gl) return false;
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 export async function init() {
   if (renderer) return true;
+  if (!hasWebGL()) throw new Error('WebGL unavailable');
   THREE = await import('three');
   ({ GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js'));
 
