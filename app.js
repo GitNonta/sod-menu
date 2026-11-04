@@ -435,6 +435,11 @@
     if (state.mode === mode || !state.data) return;
     state.mode = mode;
     renderPromotions();
+    // the menu list carries the promo sets, so it has to follow the switch
+    if (state.data) {
+      renderMenu();
+      if (state.query) applySearch();
+    }
     toast(mode === 'before_midnight' ? 'แสดงโปรโมชันก่อนเที่ยงคืน' : 'แสดงโปรโมชันหลังเที่ยงคืน');
   }
 
@@ -593,9 +598,39 @@
     </article>`;
   }
 
+  /* promo sets are menu items too: they lead the list and get their own tab */
+  function promoCat() {
+    return {
+      id: 'promo',
+      name: 'โปรโมชัน · ' + (state.mode === 'before_midnight' ? 'ก่อนเที่ยงคืน' : 'หลังเที่ยงคืน'),
+      icon: '🔥',
+    };
+  }
+
+  function promoList() {
+    const promo = state.data?.promotions?.[state.mode];
+    return [...(promo?.sets || []), ...(promo?.beer || [])];
+  }
+
+  function blockHTML(cat, list) {
+    return `<section class="cat-block" id="cat-${cat.id}" aria-labelledby="cat-${cat.id}-title">
+          <div class="cat-block__head">
+            <h3 class="cat-block__title" id="cat-${cat.id}-title">
+              <span aria-hidden="true">${cat.icon || ''}</span> ${escapeHTML(cat.name)}
+            </h3>
+            <span class="cat-block__count">${list.length} รายการ</span>
+            <span class="cat-block__rule" aria-hidden="true"></span>
+          </div>
+          <div class="grid">${list.map((i) => cardHTML(i, cat)).join('')}</div>
+        </section>`;
+  }
+
   function renderMenu() {
     const { categories = [], items = [] } = state.data;
-    el.tabs.innerHTML = categories
+    const promos = promoList();
+    const promo = promos.length ? promoCat() : null;
+    el.tabs.innerHTML = [promo, ...categories]
+      .filter(Boolean)
       .map(
         (c) =>
           `<button class="tab" type="button" data-cat="${c.id}" aria-controls="cat-${c.id}">
@@ -604,22 +639,14 @@
       )
       .join('');
 
-    el.body.innerHTML = categories
-      .map((c) => {
-        const list = items.filter((i) => i.cat === c.id);
-        if (!list.length) return '';
-        return `<section class="cat-block" id="cat-${c.id}" aria-labelledby="cat-${c.id}-title">
-          <div class="cat-block__head">
-            <h3 class="cat-block__title" id="cat-${c.id}-title">
-              <span aria-hidden="true">${c.icon || ''}</span> ${escapeHTML(c.name)}
-            </h3>
-            <span class="cat-block__count">${list.length} รายการ</span>
-            <span class="cat-block__rule" aria-hidden="true"></span>
-          </div>
-          <div class="grid">${list.map((i) => cardHTML(i, c)).join('')}</div>
-        </section>`;
-      })
-      .join('');
+    el.body.innerHTML =
+      (promo ? blockHTML(promo, promos) : '') +
+      categories
+        .map((c) => {
+          const list = items.filter((i) => i.cat === c.id);
+          return list.length ? blockHTML(c, list) : '';
+        })
+        .join('');
 
     el.body.querySelectorAll('.card__img').forEach((img) => {
       img.addEventListener('error', () => {
@@ -634,7 +661,7 @@
     state.blocks = Array.from(el.body.querySelectorAll('.cat-block'));
     if (state.blocks[0]) setActiveTab(state.blocks[0].id.replace('cat-', ''));
 
-    const total = items.length;
+    const total = items.length + promos.length;
     el.status.textContent = `${total} รายการ · เวอร์ชัน ${state.data.version || '1.0.0'}`;
     el.footerMeta.textContent = `เมนูเวอร์ชัน ${state.data.version || '1.0.0'}`;
 
@@ -727,7 +754,9 @@
       block.hidden = !block.querySelector('.card:not([hidden])');
     });
     el.searchClear.hidden = !q;
-    el.status.textContent = q ? `พบ ${shown} รายการ จากคำค้น “${state.query.trim()}”` : `${state.data.items.length} รายการ · เวอร์ชัน ${state.data.version}`;
+    el.status.textContent = q
+      ? `พบ ${shown} รายการ จากคำค้น “${state.query.trim()}”`
+      : `${state.data.items.length + promoList().length} รายการ · เวอร์ชัน ${state.data.version}`;
   }
 
   function wireSearch() {
