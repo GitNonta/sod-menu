@@ -409,7 +409,8 @@ a {
 /* full-screen deck: one promotion fills the viewport, snapping page by page */
 .deck {
   position: relative;
-  margin-inline: calc(50% - 50vw);
+  /* 100vw counts the scrollbar, so pull it back out to land on the viewport edges */
+  margin-inline: calc(50% - 50vw + var(--sbw, 0px) / 2);
   height: 100svh;
   height: 100dvh;
   background: var(--surface);
@@ -1346,7 +1347,7 @@ a {
     justify-content: center;
   }
   .deck {
-    margin-inline: calc(50% - 50vw);
+    margin-inline: calc(50% - 50vw + var(--sbw, 0px) / 2);
     border-radius: 0;
   }
   .deck__track {

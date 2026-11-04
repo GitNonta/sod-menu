@@ -12,6 +12,15 @@
 
   const $ = (id) => document.getElementById(id);
 
+  /* full-bleed sections size themselves with 100vw, which includes the scrollbar;
+     publish its width so their edges land exactly on the viewport edges */
+  function syncScrollbarWidth() {
+    const sbw = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+    document.documentElement.style.setProperty('--sbw', sbw + 'px');
+  }
+  syncScrollbarWidth();
+  window.addEventListener('resize', syncScrollbarWidth, { passive: true });
+
   const el = {
     intro: $('intro'),
     introSkip: $('introSkip'),
