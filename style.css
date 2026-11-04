@@ -1351,7 +1351,7 @@ a {
   }
   /* tablet and up: the deck stays edge-to-edge, only the bar keeps the gutter */
   .promo {
-    margin-inline: 0;
+    margin-inline: calc(-1 * var(--pad-l)) calc(-1 * var(--pad-r));
     border: 0;
     border-radius: 0;
     padding: 0;
@@ -1422,8 +1422,15 @@ a {
     padding-top: 0;
     padding-bottom: 40px;
   }
+  /* the deck is full-bleed, so the column limit belongs to the copy, not the hero */
   .hero__inner {
+    max-width: none;
+  }
+  .hero__intro,
+  .hero__cta {
+    width: 100%;
     max-width: 760px;
+    margin-inline: auto;
   }
   .grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
