@@ -406,16 +406,20 @@ a {
 }
 
 /* ── Promo deck: one promotion per page, scrolls up/down ────── */
+/* full-screen deck: one promotion fills the viewport, snapping page by page */
 .deck {
   position: relative;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  margin-inline: calc(-1 * var(--pad-l)) calc(-1 * var(--pad-r));
+  height: 100svh;
+  height: 100dvh;
   background: var(--surface);
+  border: 0;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .deck__track {
-  height: clamp(440px, 62svh, 580px);
+  height: 100%;
   overflow-y: auto;
   scroll-snap-type: y mandatory;
   scroll-behavior: smooth;
@@ -443,18 +447,27 @@ a {
 }
 /* both arrows sit in the text column's right gutter, never on the product */
 .deck__nav--prev {
-  top: 10px;
+  top: calc(50% - 54px);
 }
 .deck__nav--next {
-  top: 62px;
+  top: calc(50% + 10px);
 }
 
 .deck__rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(10px + var(--safe-b));
+  z-index: 6;
   display: flex;
   justify-content: center;
   gap: 0;
-  padding: 2px 6px 4px;
-  border-top: 1px solid var(--line);
+  padding: 0 6px;
+  pointer-events: none;
+  background: linear-gradient(to top, var(--surface) 46%, transparent);
+}
+.deck__rail .slider__dot {
+  pointer-events: auto;
 }
 
 /* page */
@@ -467,8 +480,29 @@ a {
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 6px;
-  padding: 18px 16px 14px;
+  padding: 26px var(--pad-l) 68px;
   background: var(--surface);
+}
+
+/* on a full screen there is room to let the set grow with the viewport */
+@media (min-height: 620px) {
+  .slide__stage {
+    width: clamp(132px, 40vw, 180px);
+    height: clamp(256px, 34svh, 350px);
+  }
+  .slide__art {
+    width: clamp(132px, 40vw, 180px);
+    height: clamp(250px, 33svh, 344px);
+  }
+  .set__cluster {
+    --cluster-h: clamp(266px, 37svh, 380px);
+  }
+  .set__mixer {
+    --mixw: clamp(52px, 15vw, 68px);
+  }
+  .set__ice {
+    --icew: clamp(94px, 27vw, 122px);
+  }
 }
 
 .slide__text {
@@ -834,13 +868,14 @@ a {
   50% { transform: scaleX(1.08); opacity: 0.32; }
 }
 
+/* reveal-on-scroll: text rises out of focus, the set settles in from below */
 @keyframes enterUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; transform: translateY(28px); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
 }
 
 @keyframes enterFade {
-  from { opacity: 0; transform: scale(0.96); }
+  from { opacity: 0; transform: scale(0.9) translateY(22px); }
   to { opacity: 1; transform: none; }
 }
 
@@ -1305,8 +1340,12 @@ a {
     padding: 14px 14px 6px;
     box-shadow: var(--shadow-soft);
   }
+  .deck {
+    margin-inline: -14px;
+    border-radius: 18px;
+  }
   .deck__track {
-    height: clamp(400px, 54svh, 600px);
+    height: 100%;
   }
   .slide {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1399,10 +1438,10 @@ a {
 /* short screens (small phones, landscape): keep every page fully visible */
 @media (max-height: 700px) {
   .deck__track {
-    height: clamp(400px, 72svh, 520px);
+    height: 100%;
   }
   .slide {
-    padding: 14px 14px 10px;
+    padding: 16px var(--pad-l) 60px;
   }
   .set__cluster {
     --cluster-h: 204px;
