@@ -39,6 +39,8 @@
     promoLabel: $('promoLabel'),
     tabBefore: $('tabBefore'),
     tabAfter: $('tabAfter'),
+    tabBeforeMenu: $('tabBeforeMenu'),
+    tabAfterMenu: $('tabAfterMenu'),
     deck: $('promoSlider'),
     track: $('promoTrack'),
     dots: $('promoDots'),
@@ -424,11 +426,17 @@
 
   function setModeChrome() {
     const before = state.mode === 'before_midnight';
-    if (!el.tabBefore || !el.tabAfter) return;
-    el.tabBefore.classList.toggle('is-active', before);
-    el.tabAfter.classList.toggle('is-active', !before);
-    el.tabBefore.setAttribute('aria-pressed', String(before));
-    el.tabAfter.setAttribute('aria-pressed', String(!before));
+    // the switch exists twice: on the promo deck and in the menu list
+    [
+      [el.tabBefore, el.tabAfter],
+      [el.tabBeforeMenu, el.tabAfterMenu],
+    ].forEach(([on, off]) => {
+      if (!on || !off) return;
+      on.classList.toggle('is-active', before);
+      off.classList.toggle('is-active', !before);
+      on.setAttribute('aria-pressed', String(before));
+      off.setAttribute('aria-pressed', String(!before));
+    });
   }
 
   function setMode(mode) {
@@ -554,6 +562,8 @@
     });
     el.tabBefore?.addEventListener('click', () => setMode('before_midnight'));
     el.tabAfter?.addEventListener('click', () => setMode('after_midnight'));
+    el.tabBeforeMenu?.addEventListener('click', () => setMode('before_midnight'));
+    el.tabAfterMenu?.addEventListener('click', () => setMode('after_midnight'));
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) goToSlide(state.slideIndex, false);
     });

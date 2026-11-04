@@ -486,6 +486,21 @@ a {
   pointer-events: auto;
 }
 
+/* the promo period switch also lives in the menu, next to the list it changes */
+.menu__mode {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 14px;
+}
+
+.menu__mode-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
 /* page */
 .slide {
   position: relative;
