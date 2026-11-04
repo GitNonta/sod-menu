@@ -1120,7 +1120,7 @@ a {
 /* the photo bleeds to the card edge, so the tile always looks filled */
 .card__media {
   position: relative;
-  aspect-ratio: 2 / 3;
+  aspect-ratio: 1 / 1;
   display: grid;
   place-items: center;
   border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
