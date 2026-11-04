@@ -123,10 +123,9 @@
     {
       "id": "beer-mai",
       "cat": "beer",
-      "name": "เบียร์ 'มาย' (ยืนยันชื่อ)",
+      "name": "เบียร์ มาย (My Beer)",
       "price": 150,
-      "image": null,
-      "note": "ต้นฉบับเสียงอ่านว่า 'มาย' ไม่มีรูป — ตรวจสอบชื่อยี่ห้อ"
+      "image": "images/mai-beer.webp"
     },
     {
       "id": "sangsom-700",
@@ -301,7 +300,7 @@
           "id": "pre-beer-mai-4",
           "name": "เบียร์ 'มาย' 4 ขวด",
           "price": 390,
-          "image": null
+          "image": "images/mai-beer.webp"
         },
         {
           "id": "pre-beer-singha-leo-3",
@@ -344,7 +343,7 @@
           "id": "post-beer-mai-3",
           "name": "เบียร์ 'มาย' 3 ขวด",
           "price": 390,
-          "image": null
+          "image": "images/mai-beer.webp"
         },
         {
           "id": "post-beer-leo-3",
