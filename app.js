@@ -70,6 +70,12 @@
 
   const iconMarkup = (key) => ICONS[key] || ICONS.default;
 
+  /* The three.js overlay stays off: on some devices the WebGL canvas painted
+     blank/white over the product, so the bottle looked missing ("เหล้าไม่ขึ้น").
+     The real product photo is always shown instead — set this to true to try
+     the canvas again. */
+  const ART3D_ENABLED = false;
+
   let art3d = null;
   let art3dStarted = false;
 
@@ -377,7 +383,7 @@
 
   /* ── Optional three.js art (drag / tilt) ───────────────────── */
   async function setupArt3D() {
-    if (art3dStarted || reduceMotion) return;
+    if (!ART3D_ENABLED || art3dStarted || reduceMotion) return;
     art3dStarted = true;
     try {
       const mod = await import('./art3d.js');
