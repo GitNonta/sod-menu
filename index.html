@@ -31,7 +31,7 @@
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;900&display=swap" /></noscript>
   <!-- bump the ?v= stamp whenever style.css or app.js changes: GitHub Pages
        caches both for 10 minutes, so a returning visitor would keep the old design -->
-  <link rel="stylesheet" href="./style.css?v=1.0.6" />
+  <link rel="stylesheet" href="./style.css?v=1.0.7" />
 </head>
 <body>
   <!-- ── Intro animation (skippable) ───────────────────────────── -->
@@ -155,13 +155,47 @@
         <span class="order__total" id="orderTotal">฿0</span>
         <span class="order__note" id="orderNote" hidden></span>
       </p>
-      <button class="order__clear" id="orderClear" type="button">ล้าง</button>
+      <button class="order__open" id="orderOpen" type="button">ดูรายการ</button>
     </div>
+  </div>
+
+  <!-- ── Summary sheet: picked list, total and the bill split ── -->
+  <div class="sheet" id="orderSheet" hidden>
+    <div class="sheet__scrim" id="orderScrim"></div>
+    <section class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <header class="sheet__head">
+        <h2 class="sheet__title" id="sheetTitle">สรุปรายการ</h2>
+        <button class="sheet__close" id="orderSheetX" type="button" aria-label="ปิดสรุปรายการ">✕</button>
+      </header>
+
+      <ul class="sheet__list" id="orderList"></ul>
+      <p class="sheet__empty" id="orderEmpty">ยังไม่มีรายการ — แตะรูปสินค้าเพื่อเพิ่ม</p>
+
+      <div class="sheet__sum">
+        <span class="sheet__sum-label">รวมทั้งสิ้น</span>
+        <strong class="sheet__sum-value" id="sheetTotal">฿0</strong>
+      </div>
+      <p class="sheet__note" id="sheetNote" hidden></p>
+
+      <div class="sheet__split">
+        <div class="sheet__split-head">
+          <span class="sheet__split-label">หารกับเพื่อน</span>
+          <div class="stepper" role="group" aria-label="จำนวนคนหาร">
+            <button class="stepper__btn" id="splitMinus" type="button" aria-label="ลดจำนวนคน">−</button>
+            <output class="stepper__value" id="splitPeople">2</output>
+            <button class="stepper__btn" id="splitPlus" type="button" aria-label="เพิ่มจำนวนคน">+</button>
+          </div>
+        </div>
+        <p class="sheet__each" id="splitEach">คนละ ฿0</p>
+      </div>
+
+      <button class="sheet__clear" id="orderClear" type="button">ล้างรายการ</button>
+    </section>
   </div>
 
   <button class="to-top" id="toTop" type="button" aria-label="กลับขึ้นด้านบน" hidden>↑</button>
   <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
 
-  <script src="./app.js?v=1.0.6" defer></script>
+  <script src="./app.js?v=1.0.7" defer></script>
 </body>
 </html>

@@ -60,6 +60,18 @@
     orderCount: $('orderCount'),
     orderTotal: $('orderTotal'),
     orderNote: $('orderNote'),
+    orderOpen: $('orderOpen'),
+    orderSheet: $('orderSheet'),
+    orderScrim: $('orderScrim'),
+    orderSheetX: $('orderSheetX'),
+    orderList: $('orderList'),
+    orderEmpty: $('orderEmpty'),
+    sheetTotal: $('sheetTotal'),
+    sheetNote: $('sheetNote'),
+    splitMinus: $('splitMinus'),
+    splitPlus: $('splitPlus'),
+    splitPeople: $('splitPeople'),
+    splitEach: $('splitEach'),
     orderClear: $('orderClear'),
   };
 
@@ -909,6 +921,7 @@
     el.orderNote.textContent = asking ? `+${asking} รายการสอบถามราคา` : '';
     el.orderBar.hidden = qty === 0;
     document.body.classList.toggle('has-order', qty > 0);
+    renderSheet();
   }
 
   function wireOrder() {
@@ -926,6 +939,90 @@
     el.orderClear.addEventListener('click', () => {
       order.clear();
       paintOrder();
+      closeSheet();
+    });
+  }
+
+  /* ── Summary sheet: the picked list, the total, and the bill split ── */
+  let splitPeople = 2;
+  let sheetReturnFocus = null;
+
+  function renderSheet() {
+    if (!el.orderList) return;
+    let qty = 0;
+    let total = 0;
+    let asking = 0;
+    order.forEach((row) => {
+      qty += row.qty;
+      if (row.price === null) asking += row.qty;
+      else total += row.price * row.qty;
+    });
+
+    el.orderList.innerHTML = [...order.entries()]
+      .map(([name, row]) => {
+        const attr = escapeAttr(name);
+        const line = row.price === null ? 'สอบถาม' : THB(row.price * row.qty);
+        return `<li class="sheet__row">
+            <span class="sheet__name">${escapeHTML(name)}</span>
+            <span class="sheet__step">
+              <button class="sheet__btn" type="button" data-take="${attr}" aria-label="ลด ${attr}">−</button>
+              <b class="sheet__qty">${row.qty}</b>
+              <button class="sheet__btn" type="button" data-append="${attr}" data-price="${row.price === null ? '' : row.price}" aria-label="เพิ่ม ${attr}">+</button>
+            </span>
+            <span class="sheet__line">${line}</span>
+          </li>`;
+      })
+      .join('');
+
+    el.orderEmpty.hidden = qty > 0;
+    el.sheetTotal.textContent = THB(total);
+    el.splitPeople.textContent = String(splitPeople);
+    /* split to the baht, rounded up, so nobody is a satang short */
+    el.splitEach.textContent = qty ? `คนละ ${THB(Math.ceil(total / splitPeople))}` : 'คนละ ฿0';
+    el.sheetNote.hidden = asking === 0;
+    el.sheetNote.textContent = asking ? `มี ${asking} รายการที่ต้องสอบถามราคากับพนักงาน — ยังไม่รวมในยอดนี้` : '';
+    el.splitMinus.disabled = splitPeople <= 1;
+    el.splitPlus.disabled = splitPeople >= 20;
+  }
+
+  function openSheet() {
+    sheetReturnFocus = document.activeElement;
+    renderSheet();
+    el.orderSheet.hidden = false;
+    document.body.classList.add('has-sheet');
+    el.orderSheetX.focus();
+  }
+
+  function closeSheet() {
+    if (el.orderSheet.hidden) return;
+    el.orderSheet.hidden = true;
+    document.body.classList.remove('has-sheet');
+    if (sheetReturnFocus && typeof sheetReturnFocus.focus === 'function') sheetReturnFocus.focus();
+  }
+
+  function wireSheet() {
+    el.orderOpen.addEventListener('click', openSheet);
+    el.orderSheetX.addEventListener('click', closeSheet);
+    el.orderScrim.addEventListener('click', closeSheet);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !el.orderSheet.hidden) closeSheet();
+    });
+    el.orderList.addEventListener('click', (e) => {
+      const add = e.target.closest('[data-append]');
+      if (add) {
+        addToOrder(add.dataset.append, add.dataset.price);
+        return;
+      }
+      const take = e.target.closest('[data-take]');
+      if (take) takeFromOrder(take.dataset.take);
+    });
+    el.splitMinus.addEventListener('click', () => {
+      splitPeople = Math.max(1, splitPeople - 1);
+      renderSheet();
+    });
+    el.splitPlus.addEventListener('click', () => {
+      splitPeople = Math.min(20, splitPeople + 1);
+      renderSheet();
     });
   }
 
@@ -990,6 +1087,7 @@
   wireSlider();
   wireSearch();
   wireOrder();
+  wireSheet();
   wireToTop();
   wireTabs();
   wireScrollSpy();
