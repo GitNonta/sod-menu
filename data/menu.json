@@ -1,5 +1,5 @@
 {
-  "version": "1.0.3",
+  "version": "1.0.4",
   "shop": {
     "name": "SOD! signature",
     "currency": "฿",
@@ -76,7 +76,7 @@
       "name": "โซดา (มิกเซอร์)",
       "price": 60,
       "image": "images/soda.webp",
-      "note": "ภาพประกอบเป็นภาพวาดซิฟอนโซดา (Wikimedia Commons, Public domain)"
+      "note": "ภาพถ่ายขวดโซดาของร้าน (จากเจ้าของร้าน)"
     },
     {
       "id": "schweppes-manao",
@@ -180,18 +180,16 @@
     {
       "id": "regency-flask",
       "cat": "spirit",
-      "name": "รีเจนซี่ VSOP (แบน)",
-      "price": null,
-      "image": "images/regency-flask.webp",
-      "note": "ยังไม่ได้ระบุราคา"
+      "name": "รีเจนซี่ VSOP (ขวดแบน)",
+      "price": 649,
+      "image": "images/regency-flask.webp"
     },
     {
       "id": "regency-brandy",
       "cat": "spirit",
-      "name": "รีเจนซี่ บรั่นดี VSOP",
-      "price": null,
-      "image": "images/regency-brandy.webp",
-      "note": "ยังไม่ได้ระบุราคา"
+      "name": "รีเจนซี่ บรั่นดี VSOP (ขวดกลม)",
+      "price": 969,
+      "image": "images/regency-brandy.webp"
     },
     {
       "id": "jack-daniels",
