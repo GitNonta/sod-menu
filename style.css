@@ -18,6 +18,8 @@
   --tabs-bg: rgba(247, 246, 243, 0.94);
   --focus-ring: rgba(168, 78, 38, 0.12);
   --ground: rgba(22, 21, 15, 0.22);
+  /* strength of the shop mark sitting behind each list tile */
+  --card-mark-opacity: 0.55;
   color-scheme: light;
   --radius: 14px;
   --radius-sm: 10px;
@@ -51,6 +53,7 @@
   --tabs-bg: rgba(19, 18, 17, 0.94);
   --focus-ring: rgba(224, 154, 114, 0.26);
   --ground: rgba(0, 0, 0, 0.6);
+  --card-mark-opacity: 0.68;
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.45), 0 10px 26px rgba(0, 0, 0, 0.32);
 }
 
@@ -1200,6 +1203,31 @@ a {
   margin: -8px -8px 10px;
   overflow: hidden;
   perspective: 600px;
+}
+
+/* the tile is backed by the shop mark, dimmed so the cut-out stays the hero;
+   a soft glow in front of it keeps busy neon edges away from the product */
+.card__media::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: url('./images/logo.jpg') center / cover no-repeat;
+  opacity: var(--card-mark-opacity, 0.55);
+  pointer-events: none;
+}
+
+.card__media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(
+    closest-side at 50% 52%,
+    color-mix(in srgb, var(--surface) 58%, transparent) 0%,
+    transparent 76%
+  );
+  pointer-events: none;
 }
 
 
