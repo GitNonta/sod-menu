@@ -31,7 +31,7 @@
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;900&display=swap" /></noscript>
   <!-- bump the ?v= stamp whenever style.css or app.js changes: GitHub Pages
        caches both for 10 minutes, so a returning visitor would keep the old design -->
-  <link rel="stylesheet" href="./style.css?v=1.0.7" />
+  <link rel="stylesheet" href="./style.css?v=1.0.8" />
 </head>
 <body>
   <!-- ── Intro animation (skippable) ───────────────────────────── -->
@@ -159,6 +159,20 @@
     </div>
   </div>
 
+  <!-- ── Mixer chooser: a spirit set lets the guest pick its mixer ── -->
+  <div class="sheet" id="mixerSheet" hidden>
+    <div class="sheet__scrim" id="mixerScrim"></div>
+    <section class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="mixerTitle">
+      <header class="sheet__head">
+        <h2 class="sheet__title" id="mixerTitle">เลือกมิกเซอร์</h2>
+        <button class="sheet__close" id="mixerX" type="button" aria-label="ปิดการเลือกมิกเซอร์">✕</button>
+      </header>
+      <p class="mixer__set" id="mixerSetName"></p>
+      <div class="mixer__grid" id="mixerGrid" role="group" aria-label="ชนิดมิกเซอร์"></div>
+      <p class="mixer__hint">เซ็ตนี้มาพร้อมมิกเซอร์ 10 ขวด — เลือกได้ 1 ชนิดต่อเซ็ต แตะการ์ดซ้ำเพื่อเพิ่มอีกเซ็ต</p>
+    </section>
+  </div>
+
   <!-- ── Summary sheet: picked list, total and the bill split ── -->
   <div class="sheet" id="orderSheet" hidden>
     <div class="sheet__scrim" id="orderScrim"></div>
@@ -196,6 +210,6 @@
   <button class="to-top" id="toTop" type="button" aria-label="กลับขึ้นด้านบน" hidden>↑</button>
   <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
 
-  <script src="./app.js?v=1.0.7" defer></script>
+  <script src="./app.js?v=1.0.8" defer></script>
 </body>
 </html>

@@ -1844,6 +1844,48 @@ body.has-sheet {
   font-variant-numeric: tabular-nums;
 }
 
+/* mixer chooser */
+.mixer__set {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.mixer__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mixer__opt {
+  min-height: 52px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-soft);
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink);
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.mixer__opt:hover {
+  border-color: var(--red);
+}
+
+.mixer__opt:active {
+  background: color-mix(in srgb, var(--red) 12%, var(--surface-soft));
+}
+
+.mixer__hint {
+  margin: 12px 0 0;
+  font-size: 0.74rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
 .sheet__clear {
   width: 100%;
   min-height: 44px;

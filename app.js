@@ -61,6 +61,11 @@
     orderTotal: $('orderTotal'),
     orderNote: $('orderNote'),
     orderOpen: $('orderOpen'),
+    mixerSheet: $('mixerSheet'),
+    mixerScrim: $('mixerScrim'),
+    mixerX: $('mixerX'),
+    mixerGrid: $('mixerGrid'),
+    mixerSetName: $('mixerSetName'),
     orderSheet: $('orderSheet'),
     orderScrim: $('orderScrim'),
     orderSheetX: $('orderSheetX'),
@@ -654,10 +659,14 @@
        the order total never has to look items up again. */
     const priceAttr = item.price === null || item.price === undefined ? '' : String(item.price);
     const nameAttr = escapeAttr(item.name);
+    /* a spirit set ships with ten mixers, so its tile opens the mixer chooser
+       first instead of counting the set blindly */
+    const isSet = combo === 'spirit';
+    const hitLabel = isSet ? `เลือกมิกเซอร์สำหรับ ${nameAttr}` : `เพิ่ม ${nameAttr} ลงรายการ`;
     return `<article class="card reveal" data-name="${escapeAttr(item.name.toLowerCase())}">
       <div class="card__media${combo ? ' card__media--set' : ''}">
         ${media}
-        <button class="card__hit" type="button" data-append="${nameAttr}" data-price="${priceAttr}" aria-label="เพิ่ม ${nameAttr} ลงรายการ"></button>
+        <button class="card__hit" type="button" data-append="${nameAttr}" data-price="${priceAttr}" data-set="${isSet ? 'spirit' : ''}" aria-label="${hitLabel}"></button>
         <button class="card__qty" type="button" data-take="${nameAttr}" aria-label="ลดจำนวน ${nameAttr}" hidden>0</button>
       </div>
       <h3 class="card__name">${escapeHTML(item.name)}</h3>
@@ -849,26 +858,41 @@
   /* ── Order: tap tiles to count them and add up the price ───── */
   /* name → { price, qty }; a null price means "ask the staff", which is counted
      in the item tally but kept out of the money total */
+  /* keyed by the line label, so one set can sit in the order twice with
+     different mixers ("... · โค้ก" and "... · สไปรท์") */
   const order = new Map();
 
   function readPrice(value) {
     return value === '' || value === undefined ? null : Number(value);
   }
 
-  function addToOrder(name, priceValue) {
-    const row = order.get(name) || { price: readPrice(priceValue), qty: 0 };
+  function addToOrder(name, priceValue, label) {
+    const key = label || name;
+    const row = order.get(key) || { name, price: readPrice(priceValue), qty: 0 };
     row.qty += 1;
-    order.set(name, row);
+    order.set(key, row);
     paintOrder(name);
   }
 
-  function takeFromOrder(name) {
-    const row = order.get(name);
+  function takeFromOrder(key) {
+    const row = order.get(key);
     if (!row) return;
     row.qty -= 1;
-    if (row.qty > 0) order.set(name, row);
-    else order.delete(name);
-    paintOrder(name);
+    if (row.qty > 0) order.set(key, row);
+    else order.delete(key);
+    paintOrder(row.name);
+  }
+
+  /* the badge on a card speaks for the item, so it takes one off the most
+     recently added line of that item */
+  function takeFromOrderItem(itemName) {
+    const keys = [...order.keys()];
+    for (let i = keys.length - 1; i >= 0; i -= 1) {
+      if (order.get(keys[i]).name === itemName) {
+        takeFromOrder(keys[i]);
+        return;
+      }
+    }
   }
 
   /* the product itself hops as well, so the tap feels physical on the tile */
@@ -898,19 +922,24 @@
       else total += row.price * row.qty;
     });
 
+    /* one card can hold several lines (a set with different mixers), so the
+       badge shows the sum for that item */
+    const perItem = new Map();
+    order.forEach((row) => perItem.set(row.name, (perItem.get(row.name) || 0) + row.qty));
+
     el.body.querySelectorAll('.card__qty').forEach((badge) => {
       const name = badge.dataset.take;
-      const row = order.get(name);
+      const count = perItem.get(name) || 0;
       const card = badge.closest('.card');
-      if (!row) {
+      if (!count) {
         badge.hidden = true;
         badge.textContent = '0';
         if (card) card.classList.remove('is-picked');
         return;
       }
       badge.hidden = false;
-      badge.textContent = String(row.qty);
-      badge.setAttribute('aria-label', `ลดจำนวน ${name} (ตอนนี้ ${row.qty})`);
+      badge.textContent = String(count);
+      badge.setAttribute('aria-label', `ลดจำนวน ${name} (ตอนนี้ ${count})`);
       if (card) card.classList.add('is-picked');
       if (name === bumpedName) bumpBadge(badge);
     });
@@ -928,18 +957,60 @@
     el.body.addEventListener('click', (e) => {
       const add = e.target.closest('.card__hit');
       if (add) {
+        if (add.dataset.set) {
+          openMixer(add);
+          return;
+        }
         addToOrder(add.dataset.append, add.dataset.price);
         bounceTile(add.closest('.card__media'));
         return;
       }
       const take = e.target.closest('.card__qty');
-      if (take) takeFromOrder(take.dataset.take);
+      if (take) takeFromOrderItem(take.dataset.take);
     });
 
     el.orderClear.addEventListener('click', () => {
       order.clear();
       paintOrder();
       closeSheet();
+    });
+  }
+
+  /* ── Mixer chooser: a spirit set lets the guest pick its ten bottles ── */
+  const MIXER_OPTIONS = ['โค้ก', 'น้ำ', 'โซดา', 'สไปรท์'];
+  let pendingSet = null;
+
+  function openMixer(hit) {
+    pendingSet = { name: hit.dataset.append, price: hit.dataset.price, media: hit.closest('.card__media') };
+    el.mixerSetName.textContent = pendingSet.name;
+    if (!el.mixerGrid.children.length) {
+      el.mixerGrid.innerHTML = MIXER_OPTIONS.map(
+        (option) => `<button class="mixer__opt" type="button" data-mixer="${escapeAttr(option)}">${escapeHTML(option)}</button>`
+      ).join('');
+    }
+    el.mixerSheet.hidden = false;
+    document.body.classList.add('has-sheet');
+    const first = el.mixerGrid.querySelector('.mixer__opt');
+    if (first) first.focus();
+  }
+
+  function closeMixer() {
+    if (el.mixerSheet.hidden) return;
+    el.mixerSheet.hidden = true;
+    pendingSet = null;
+    if (el.orderSheet.hidden) document.body.classList.remove('has-sheet');
+  }
+
+  function wireMixer() {
+    el.mixerScrim.addEventListener('click', closeMixer);
+    el.mixerX.addEventListener('click', closeMixer);
+    el.mixerGrid.addEventListener('click', (e) => {
+      const option = e.target.closest('[data-mixer]');
+      if (!option || !pendingSet) return;
+      const set = pendingSet;
+      closeMixer();
+      addToOrder(set.name, set.price, `${set.name} · ${option.dataset.mixer}`);
+      bounceTile(set.media);
     });
   }
 
@@ -959,15 +1030,16 @@
     });
 
     el.orderList.innerHTML = [...order.entries()]
-      .map(([name, row]) => {
-        const attr = escapeAttr(name);
+      .map(([label, row]) => {
+        const key = escapeAttr(label);
+        const item = escapeAttr(row.name);
         const line = row.price === null ? 'สอบถาม' : THB(row.price * row.qty);
         return `<li class="sheet__row">
-            <span class="sheet__name">${escapeHTML(name)}</span>
+            <span class="sheet__name">${escapeHTML(label)}</span>
             <span class="sheet__step">
-              <button class="sheet__btn" type="button" data-take="${attr}" aria-label="ลด ${attr}">−</button>
+              <button class="sheet__btn" type="button" data-take="${key}" aria-label="ลด ${key}">−</button>
               <b class="sheet__qty">${row.qty}</b>
-              <button class="sheet__btn" type="button" data-append="${attr}" data-price="${row.price === null ? '' : row.price}" aria-label="เพิ่ม ${attr}">+</button>
+              <button class="sheet__btn" type="button" data-append="${item}" data-label="${key}" data-price="${row.price === null ? '' : row.price}" aria-label="เพิ่ม ${key}">+</button>
             </span>
             <span class="sheet__line">${line}</span>
           </li>`;
@@ -1005,12 +1077,14 @@
     el.orderSheetX.addEventListener('click', closeSheet);
     el.orderScrim.addEventListener('click', closeSheet);
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !el.orderSheet.hidden) closeSheet();
+      if (e.key !== 'Escape') return;
+      if (!el.mixerSheet.hidden) closeMixer();
+      else if (!el.orderSheet.hidden) closeSheet();
     });
     el.orderList.addEventListener('click', (e) => {
       const add = e.target.closest('[data-append]');
       if (add) {
-        addToOrder(add.dataset.append, add.dataset.price);
+        addToOrder(add.dataset.append, add.dataset.price, add.dataset.label);
         return;
       }
       const take = e.target.closest('[data-take]');
@@ -1087,6 +1161,7 @@
   wireSlider();
   wireSearch();
   wireOrder();
+  wireMixer();
   wireSheet();
   wireToTop();
   wireTabs();
