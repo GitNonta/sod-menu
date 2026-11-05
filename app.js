@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.1';
+  const ASSET_VERSION = '1.0.2';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -980,12 +980,13 @@
 
   /* ── Mixer chooser: the set ships ten bottles, mixed however the guest likes ── */
   const MIXER_SET_SIZE = 10;
-  /* soda-water.webp is the plain water bottle, so it belongs to น้ำ; the shop
-     has no plain soda cut-out yet, hence the existing bottle icon for โซดา */
+  /* soda-water.webp is the plain water bottle, so it belongs to น้ำ. โซดา points
+     at images/soda.webp: drop that file in and the real bottle shows up on its
+     own, otherwise the tile falls back to the bottle icon below */
   const MIXER_OPTIONS = [
     { name: 'โค้ก', img: './images/coke.webp' },
     { name: 'น้ำ', img: './images/soda-water.webp' },
-    { name: 'โซดา', icon: 'spirit' },
+    { name: 'โซดา', img: './images/soda.webp', icon: 'spirit' },
     { name: 'สไปรท์', img: './images/sprite.webp' },
   ];
   const mixerPick = new Map();
@@ -1028,7 +1029,7 @@
     if (!el.mixerGrid.children.length) {
       el.mixerGrid.innerHTML = MIXER_OPTIONS.map((option) => {
         const art = option.img
-          ? `<img class="mixer__thumb" src="${option.img}" alt="" width="52" height="52" loading="lazy" decoding="async" />`
+          ? `<img class="mixer__thumb" src="${option.img}" alt="" width="52" height="52" loading="lazy" decoding="async" data-icon="${option.icon || 'other'}" />`
           : `<span class="mixer__thumb mixer__thumb--icon">${iconMarkup(option.icon)}</span>`;
         /* the whole tile counts as one bottle: the art itself is the button,
            and the tile behind it takes the same tap */
@@ -1044,6 +1045,21 @@
             </div>`;
       }).join('');
     }
+
+    /* a mixer photo that is not in ./images yet (e.g. soda.webp) leaves no
+       broken tile: the same slot shows its bottle icon instead */
+    el.mixerGrid.querySelectorAll('img.mixer__thumb').forEach((img) => {
+      img.addEventListener(
+        'error',
+        () => {
+          const span = document.createElement('span');
+          span.className = 'mixer__thumb mixer__thumb--icon';
+          span.innerHTML = iconMarkup(img.dataset.icon || 'other');
+          img.replaceWith(span);
+        },
+        { once: true }
+      );
+    });
 
     renderMixer();
     el.mixerSheet.hidden = false;

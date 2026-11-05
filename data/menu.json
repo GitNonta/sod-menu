@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "shop": {
     "name": "SOD! signature",
     "currency": "฿",
@@ -64,11 +64,17 @@
       "image": "images/sprite.webp"
     },
     {
-      "id": "soda-water",
+      "id": "water",
       "cat": "mixer",
-      "name": "โซดา / น้ำ (มิกเซอร์)",
+      "name": "น้ำเปล่า (มิกเซอร์)",
       "price": 60,
       "image": "images/soda-water.webp"
+    },
+    {
+      "id": "soda",
+      "cat": "mixer",
+      "name": "โซดา (มิกเซอร์)",
+      "price": 60
     },
     {
       "id": "schweppes-manao",
