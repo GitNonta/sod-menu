@@ -1859,24 +1859,110 @@ body.has-sheet {
   margin-top: 12px;
 }
 
-.mixer__opt {
-  min-height: 52px;
-  padding: 0 12px;
+.mixer__tile {
+  display: grid;
+  grid-template-rows: 52px auto auto;
+  justify-items: center;
+  gap: 4px;
+  padding: 8px 8px 6px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--line-strong);
   background: var(--surface-soft);
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: var(--ink);
   transition: border-color 0.18s ease, background 0.18s ease;
 }
 
-.mixer__opt:hover {
+.mixer__tile.is-picked {
   border-color: var(--red);
+  background: color-mix(in srgb, var(--red) 7%, var(--surface-soft));
 }
 
-.mixer__opt:active {
-  background: color-mix(in srgb, var(--red) 12%, var(--surface-soft));
+.mixer__thumb {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+}
+
+.mixer__thumb--icon {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.mixer__thumb--icon svg {
+  width: 34px;
+  height: 34px;
+}
+
+.mixer__label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.mixer__row {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.mixer__minus,
+.mixer__plus {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted-strong);
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.mixer__minus:disabled,
+.mixer__plus:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.mixer__count {
+  min-width: 22px;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.mixer__tile.is-picked .mixer__count {
+  color: var(--red);
+}
+
+.mixer__progress {
+  margin: 12px 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mixer__progress.is-full {
+  color: var(--red);
+}
+
+.mixer__confirm {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--on-ink);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.mixer__confirm:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .mixer__hint {

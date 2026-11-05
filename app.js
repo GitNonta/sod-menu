@@ -66,6 +66,8 @@
     mixerX: $('mixerX'),
     mixerGrid: $('mixerGrid'),
     mixerSetName: $('mixerSetName'),
+    mixerProgress: $('mixerProgress'),
+    mixerConfirm: $('mixerConfirm'),
     orderSheet: $('orderSheet'),
     orderScrim: $('orderScrim'),
     orderSheetX: $('orderSheetX'),
@@ -976,21 +978,72 @@
     });
   }
 
-  /* ── Mixer chooser: a spirit set lets the guest pick its ten bottles ── */
-  const MIXER_OPTIONS = ['โค้ก', 'น้ำ', 'โซดา', 'สไปรท์'];
+  /* ── Mixer chooser: the set ships ten bottles, mixed however the guest likes ── */
+  const MIXER_SET_SIZE = 10;
+  const MIXER_OPTIONS = [
+    { name: 'โค้ก', img: './images/coke.webp' },
+    { name: 'น้ำ', icon: 'mixer' },
+    { name: 'โซดา', img: './images/soda-water.webp' },
+    { name: 'สไปรท์', img: './images/sprite.webp' },
+  ];
+  const mixerPick = new Map();
   let pendingSet = null;
+
+  function mixerTotal() {
+    let total = 0;
+    mixerPick.forEach((n) => {
+      total += n;
+    });
+    return total;
+  }
+
+  function renderMixer() {
+    const total = mixerTotal();
+    el.mixerGrid.querySelectorAll('.mixer__tile').forEach((tile) => {
+      const name = tile.dataset.mixer;
+      const count = mixerPick.get(name) || 0;
+      const num = tile.querySelector('.mixer__count');
+      num.textContent = String(count);
+      tile.classList.toggle('is-picked', count > 0);
+      const minus = tile.querySelector('.mixer__minus');
+      if (minus) minus.disabled = count === 0;
+      const plus = tile.querySelector('.mixer__plus');
+      if (plus) plus.disabled = total >= MIXER_SET_SIZE;
+      tile.querySelector('.mixer__count').setAttribute('aria-label', `${name} ${count} ขวด`);
+    });
+    el.mixerProgress.textContent = `เลือกแล้ว ${total} / ${MIXER_SET_SIZE} ขวด`;
+    el.mixerProgress.classList.toggle('is-full', total === MIXER_SET_SIZE);
+    el.mixerConfirm.disabled = total !== MIXER_SET_SIZE;
+    el.mixerConfirm.textContent = total === MIXER_SET_SIZE ? 'เพิ่มลงรายการ' : `เหลือ ${MIXER_SET_SIZE - total} ขวด`;
+  }
 
   function openMixer(hit) {
     pendingSet = { name: hit.dataset.append, price: hit.dataset.price, media: hit.closest('.card__media') };
     el.mixerSetName.textContent = pendingSet.name;
+    mixerPick.clear();
+    MIXER_OPTIONS.forEach((option) => mixerPick.set(option.name, 0));
+
     if (!el.mixerGrid.children.length) {
-      el.mixerGrid.innerHTML = MIXER_OPTIONS.map(
-        (option) => `<button class="mixer__opt" type="button" data-mixer="${escapeAttr(option)}">${escapeHTML(option)}</button>`
-      ).join('');
+      el.mixerGrid.innerHTML = MIXER_OPTIONS.map((option) => {
+        const thumb = option.img
+          ? `<img class="mixer__thumb" src="${option.img}" alt="" width="52" height="52" loading="lazy" decoding="async" />`
+          : `<span class="mixer__thumb mixer__thumb--icon">${iconMarkup(option.icon)}</span>`;
+        return `<div class="mixer__tile" data-mixer="${escapeAttr(option.name)}">
+              ${thumb}
+              <span class="mixer__label">${escapeHTML(option.name)}</span>
+              <span class="mixer__row">
+                <button class="mixer__minus" type="button" data-minus="${escapeAttr(option.name)}" aria-label="ลด ${escapeAttr(option.name)}">−</button>
+                <b class="mixer__count" aria-live="off">0</b>
+                <button class="mixer__plus" type="button" data-plus="${escapeAttr(option.name)}" aria-label="เพิ่ม ${escapeAttr(option.name)}">+</button>
+              </span>
+            </div>`;
+      }).join('');
     }
+
+    renderMixer();
     el.mixerSheet.hidden = false;
     document.body.classList.add('has-sheet');
-    const first = el.mixerGrid.querySelector('.mixer__opt');
+    const first = el.mixerGrid.querySelector('.mixer__plus');
     if (first) first.focus();
   }
 
@@ -1001,15 +1054,42 @@
     if (el.orderSheet.hidden) document.body.classList.remove('has-sheet');
   }
 
+  /* "305 · โค้ก×7 + โซดา×3" — only the kinds that were actually picked */
+  function mixerLabel(setName) {
+    const parts = MIXER_OPTIONS.filter((option) => (mixerPick.get(option.name) || 0) > 0).map(
+      (option) => `${option.name}×${mixerPick.get(option.name)}`
+    );
+    return `${setName} · ${parts.join(' + ')}`;
+  }
+
   function wireMixer() {
     el.mixerScrim.addEventListener('click', closeMixer);
     el.mixerX.addEventListener('click', closeMixer);
+
     el.mixerGrid.addEventListener('click', (e) => {
-      const option = e.target.closest('[data-mixer]');
-      if (!option || !pendingSet) return;
+      if (!pendingSet) return;
+      const plus = e.target.closest('[data-plus]');
+      const minus = e.target.closest('[data-minus]');
+      if (plus) {
+        const name = plus.dataset.plus;
+        if (mixerTotal() >= MIXER_SET_SIZE) return;
+        mixerPick.set(name, (mixerPick.get(name) || 0) + 1);
+        renderMixer();
+        return;
+      }
+      if (minus) {
+        const name = minus.dataset.minus;
+        mixerPick.set(name, Math.max(0, (mixerPick.get(name) || 0) - 1));
+        renderMixer();
+      }
+    });
+
+    el.mixerConfirm.addEventListener('click', () => {
+      if (!pendingSet || mixerTotal() !== MIXER_SET_SIZE) return;
       const set = pendingSet;
+      const label = mixerLabel(set.name);
       closeMixer();
-      addToOrder(set.name, set.price, `${set.name} · ${option.dataset.mixer}`);
+      addToOrder(set.name, set.price, label);
       bounceTile(set.media);
     });
   }

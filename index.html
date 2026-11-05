@@ -31,7 +31,7 @@
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;900&display=swap" /></noscript>
   <!-- bump the ?v= stamp whenever style.css or app.js changes: GitHub Pages
        caches both for 10 minutes, so a returning visitor would keep the old design -->
-  <link rel="stylesheet" href="./style.css?v=1.0.8" />
+  <link rel="stylesheet" href="./style.css?v=1.0.9" />
 </head>
 <body>
   <!-- ── Intro animation (skippable) ───────────────────────────── -->
@@ -169,7 +169,9 @@
       </header>
       <p class="mixer__set" id="mixerSetName"></p>
       <div class="mixer__grid" id="mixerGrid" role="group" aria-label="ชนิดมิกเซอร์"></div>
-      <p class="mixer__hint">เซ็ตนี้มาพร้อมมิกเซอร์ 10 ขวด — เลือกได้ 1 ชนิดต่อเซ็ต แตะการ์ดซ้ำเพื่อเพิ่มอีกเซ็ต</p>
+      <p class="mixer__progress" id="mixerProgress" aria-live="polite">เลือกแล้ว 0 / 10 ขวด</p>
+      <button class="mixer__confirm" id="mixerConfirm" type="button" disabled>เหลือ 10 ขวด</button>
+      <p class="mixer__hint">เซ็ตนี้มาพร้อมมิกเซอร์ 10 ขวด — ต้องเลือกให้ครบ 10 และผสมกันได้ตามต้องการ</p>
     </section>
   </div>
 
@@ -210,6 +212,6 @@
   <button class="to-top" id="toTop" type="button" aria-label="กลับขึ้นด้านบน" hidden>↑</button>
   <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
 
-  <script src="./app.js?v=1.0.8" defer></script>
+  <script src="./app.js?v=1.0.9" defer></script>
 </body>
 </html>
