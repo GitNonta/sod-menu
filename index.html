@@ -29,7 +29,9 @@
     } catch (e) {}
   </script>
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;900&display=swap" /></noscript>
-  <link rel="stylesheet" href="./style.css" />
+  <!-- bump the ?v= stamp whenever style.css or app.js changes: GitHub Pages
+       caches both for 10 minutes, so a returning visitor would keep the old design -->
+  <link rel="stylesheet" href="./style.css?v=1.0.2" />
 </head>
 <body>
   <!-- ── Intro animation (skippable) ───────────────────────────── -->
@@ -148,6 +150,6 @@
   <button class="to-top" id="toTop" type="button" aria-label="กลับขึ้นด้านบน" hidden>↑</button>
   <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
 
-  <script src="./app.js" defer></script>
+  <script src="./app.js?v=1.0.2" defer></script>
 </body>
 </html>
