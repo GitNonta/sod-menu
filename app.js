@@ -56,6 +56,11 @@
     footerMeta: $('footerMeta'),
     toTop: $('toTop'),
     toast: $('toast'),
+    orderBar: $('orderBar'),
+    orderCount: $('orderCount'),
+    orderTotal: $('orderTotal'),
+    orderNote: $('orderNote'),
+    orderClear: $('orderClear'),
   };
 
   const THB = (n) => '฿' + Number(n).toLocaleString('th-TH');
@@ -632,8 +637,17 @@
       item.price === null || item.price === undefined
         ? '<p class="card__price card__price--ask">สอบถามราคา</p>'
         : `<p class="card__price">${THB(item.price)}</p>`;
+    /* the tile itself is the tap target: one tap counts the item, and the red
+       badge on the same tile takes one back. Price rides on the hit button so
+       the order total never has to look items up again. */
+    const priceAttr = item.price === null || item.price === undefined ? '' : String(item.price);
+    const nameAttr = escapeAttr(item.name);
     return `<article class="card reveal" data-name="${escapeAttr(item.name.toLowerCase())}">
-      <div class="card__media${combo ? ' card__media--set' : ''}">${media}</div>
+      <div class="card__media${combo ? ' card__media--set' : ''}">
+        ${media}
+        <button class="card__hit" type="button" data-append="${nameAttr}" data-price="${priceAttr}" aria-label="เพิ่ม ${nameAttr} ลงรายการ"></button>
+        <button class="card__qty" type="button" data-take="${nameAttr}" aria-label="ลดจำนวน ${nameAttr}" hidden>0</button>
+      </div>
       <h3 class="card__name">${escapeHTML(item.name)}</h3>
       ${price}
     </article>`;
@@ -707,6 +721,8 @@
     el.footerMeta.textContent = `เมนูเวอร์ชัน ${state.data.version || '1.0.0'}`;
 
     observeReveal();
+    /* the cards were just rebuilt, so put the red counts back on them */
+    paintOrder();
   }
 
   function wireTabs() {
@@ -818,6 +834,90 @@
     });
   }
 
+  /* ── Order: tap tiles to count them and add up the price ───── */
+  /* name → { price, qty }; a null price means "ask the staff", which is counted
+     in the item tally but kept out of the money total */
+  const order = new Map();
+
+  function readPrice(value) {
+    return value === '' || value === undefined ? null : Number(value);
+  }
+
+  function addToOrder(name, priceValue) {
+    const row = order.get(name) || { price: readPrice(priceValue), qty: 0 };
+    row.qty += 1;
+    order.set(name, row);
+    paintOrder(name);
+  }
+
+  function takeFromOrder(name) {
+    const row = order.get(name);
+    if (!row) return;
+    row.qty -= 1;
+    if (row.qty > 0) order.set(name, row);
+    else order.delete(name);
+    paintOrder(name);
+  }
+
+  /* the red badge pops every time it changes, so a tap reads as "it counted" */
+  function bumpBadge(badge) {
+    badge.classList.remove('is-bump');
+    void badge.offsetWidth; /* restart the keyframes on a repeat tap */
+    badge.classList.add('is-bump');
+  }
+
+  function paintOrder(bumpedName) {
+    let qty = 0;
+    let total = 0;
+    let asking = 0;
+    order.forEach((row) => {
+      qty += row.qty;
+      if (row.price === null) asking += row.qty;
+      else total += row.price * row.qty;
+    });
+
+    el.body.querySelectorAll('.card__qty').forEach((badge) => {
+      const name = badge.dataset.take;
+      const row = order.get(name);
+      const card = badge.closest('.card');
+      if (!row) {
+        badge.hidden = true;
+        badge.textContent = '0';
+        if (card) card.classList.remove('is-picked');
+        return;
+      }
+      badge.hidden = false;
+      badge.textContent = String(row.qty);
+      badge.setAttribute('aria-label', `ลดจำนวน ${name} (ตอนนี้ ${row.qty})`);
+      if (card) card.classList.add('is-picked');
+      if (name === bumpedName) bumpBadge(badge);
+    });
+
+    el.orderCount.textContent = String(qty);
+    el.orderTotal.textContent = THB(total);
+    el.orderNote.hidden = asking === 0;
+    el.orderNote.textContent = asking ? `+${asking} รายการสอบถามราคา` : '';
+    el.orderBar.hidden = qty === 0;
+    document.body.classList.toggle('has-order', qty > 0);
+  }
+
+  function wireOrder() {
+    el.body.addEventListener('click', (e) => {
+      const add = e.target.closest('.card__hit');
+      if (add) {
+        addToOrder(add.dataset.append, add.dataset.price);
+        return;
+      }
+      const take = e.target.closest('.card__qty');
+      if (take) takeFromOrder(take.dataset.take);
+    });
+
+    el.orderClear.addEventListener('click', () => {
+      order.clear();
+      paintOrder();
+    });
+  }
+
   /* ── Chrome: back-to-top ───────────────────────────────────── */
   function wireToTop() {
     let raf = 0;
@@ -878,6 +978,7 @@
   watchDeck();
   wireSlider();
   wireSearch();
+  wireOrder();
   wireToTop();
   wireTabs();
   wireScrollSpy();

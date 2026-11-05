@@ -31,7 +31,7 @@
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;900&display=swap" /></noscript>
   <!-- bump the ?v= stamp whenever style.css or app.js changes: GitHub Pages
        caches both for 10 minutes, so a returning visitor would keep the old design -->
-  <link rel="stylesheet" href="./style.css?v=1.0.4" />
+  <link rel="stylesheet" href="./style.css?v=1.0.5" />
 </head>
 <body>
   <!-- ── Intro animation (skippable) ───────────────────────────── -->
@@ -147,9 +147,21 @@
     </div>
   </footer>
 
+  <!-- ── Order bar: tap a tile to count it, tap its red badge to take one back ── -->
+  <div class="order" id="orderBar" hidden>
+    <div class="order__inner wrap">
+      <p class="order__summary" aria-live="polite">
+        <span class="order__count"><b id="orderCount">0</b> รายการ</span>
+        <span class="order__total" id="orderTotal">฿0</span>
+        <span class="order__note" id="orderNote" hidden></span>
+      </p>
+      <button class="order__clear" id="orderClear" type="button">ล้าง</button>
+    </div>
+  </div>
+
   <button class="to-top" id="toTop" type="button" aria-label="กลับขึ้นด้านบน" hidden>↑</button>
   <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
 
-  <script src="./app.js?v=1.0.4" defer></script>
+  <script src="./app.js?v=1.0.5" defer></script>
 </body>
 </html>

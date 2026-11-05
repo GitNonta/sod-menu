@@ -20,6 +20,9 @@
   --ground: rgba(22, 21, 15, 0.22);
   /* strength of the shop mark sitting behind each list tile */
   --card-mark-opacity: 0.55;
+  /* the picked-count badge: red in both themes, white number */
+  --red: #d0221a;
+  --on-red: #ffffff;
   color-scheme: light;
   --radius: 14px;
   --radius-sm: 10px;
@@ -54,6 +57,8 @@
   --focus-ring: rgba(224, 154, 114, 0.26);
   --ground: rgba(0, 0, 0, 0.6);
   --card-mark-opacity: 0.68;
+  --red: #e0342a;
+  --on-red: #ffffff;
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.45), 0 10px 26px rgba(0, 0, 0, 0.32);
 }
 
@@ -1230,6 +1235,87 @@ a {
   pointer-events: none;
 }
 
+/* tapping the tile counts the item; the badge on the same tile takes one back.
+   Both are real buttons laid over the art, so the layout below is untouched. */
+.card__hit {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.18s ease;
+}
+
+.card__hit:hover {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.card__hit:active {
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+
+.card__hit:focus-visible {
+  outline-offset: -3px;
+}
+
+.card__qty {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--red);
+  color: var(--on-red);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.25);
+  cursor: pointer;
+}
+
+@keyframes qty-pop {
+  0% {
+    transform: scale(0.5);
+  }
+  55% {
+    transform: scale(1.22);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes qty-ring {
+  0% {
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.25), 0 0 0 0 color-mix(in srgb, var(--red) 65%, transparent);
+  }
+  100% {
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.25), 0 0 0 12px transparent;
+  }
+}
+
+.card__qty.is-bump {
+  animation: qty-pop 0.34s cubic-bezier(0.2, 1.4, 0.4, 1), qty-ring 0.5s ease-out;
+}
+
+/* a picked tile keeps a red edge so the list matches the order bar */
+.card.is-picked {
+  border-color: color-mix(in srgb, var(--red) 45%, var(--line));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card__qty.is-bump {
+    animation: none;
+  }
+}
+
 
 
 /* the photo owns the whole tile (no inner padding, no letterbox frame):
@@ -1423,6 +1509,104 @@ a {
 }
 
 /* ── Floating bits ─────────────────────────────────────────── */
+/* ── Order bar ─────────────────────────────────────────────── */
+.order {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 45;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 93%, transparent);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 -6px 22px rgb(22 21 15 / 0.1);
+  animation: order-rise 0.26s ease-out;
+}
+
+@keyframes order-rise {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.order__inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-block: 9px calc(9px + var(--safe-b));
+}
+
+.order__summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.order__count {
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.order__count b {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--red);
+  font-variant-numeric: tabular-nums;
+}
+
+.order__total {
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.order__note {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.order__clear {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted-strong);
+  white-space: nowrap;
+}
+
+/* the bar owns the bottom edge: lift the shortcuts and save room in the footer */
+body.has-order .to-top {
+  bottom: calc(84px + var(--safe-b));
+}
+
+body.has-order .toast {
+  bottom: calc(96px + var(--safe-b));
+}
+
+body.has-order .site-footer {
+  padding-bottom: calc(88px + var(--safe-b));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .order {
+    animation: none;
+  }
+}
+
 .to-top {
   position: fixed;
   right: max(14px, calc(var(--safe-r) + 10px));
