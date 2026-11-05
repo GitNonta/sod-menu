@@ -859,6 +859,16 @@
     paintOrder(name);
   }
 
+  /* the product itself hops as well, so the tap feels physical on the tile */
+  function bounceTile(media) {
+    if (!media || reduceMotion) return;
+    media.classList.remove('is-bounce');
+    void media.offsetWidth; /* restart the keyframes on a repeat tap */
+    media.classList.add('is-bounce');
+    clearTimeout(media._bounceTimer);
+    media._bounceTimer = setTimeout(() => media.classList.remove('is-bounce'), 470);
+  }
+
   /* the red badge pops every time it changes, so a tap reads as "it counted" */
   function bumpBadge(badge) {
     badge.classList.remove('is-bump');
@@ -906,6 +916,7 @@
       const add = e.target.closest('.card__hit');
       if (add) {
         addToOrder(add.dataset.append, add.dataset.price);
+        bounceTile(add.closest('.card__media'));
         return;
       }
       const take = e.target.closest('.card__qty');
