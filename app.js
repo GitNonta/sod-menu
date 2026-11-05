@@ -98,6 +98,28 @@
   let art3d = null;
   let art3dStarted = false;
 
+  const MODE_KEY = 'sod-promo-mode';
+  const MODES = ['before_midnight', 'after_midnight'];
+
+  /* The chosen promo period is remembered so returning visitors do not have to
+     flip the switch again; when nothing is stored we fall back to Bangkok time. */
+  function readSavedMode() {
+    try {
+      const saved = localStorage.getItem(MODE_KEY);
+      return MODES.includes(saved) ? saved : null;
+    } catch (_) {
+      return null; /* storage blocked — use the detected period */
+    }
+  }
+
+  function saveMode(mode) {
+    try {
+      localStorage.setItem(MODE_KEY, mode);
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
   const state = {
     data: null,
     mode: 'before_midnight',
@@ -442,6 +464,7 @@
   function setMode(mode) {
     if (state.mode === mode || !state.data) return;
     state.mode = mode;
+    saveMode(mode);
     renderPromotions();
     // the menu list carries the promo sets, so it has to follow the switch
     if (state.data) {
@@ -829,7 +852,7 @@
       const data = await loadMenu();
       state.data = data;
       applyShop(data.shop || {});
-      state.mode = detectMode();
+      state.mode = readSavedMode() || detectMode();
       renderPromotions();
       renderMenu();
       el.error.hidden = true;
