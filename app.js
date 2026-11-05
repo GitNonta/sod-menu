@@ -980,10 +980,12 @@
 
   /* ── Mixer chooser: the set ships ten bottles, mixed however the guest likes ── */
   const MIXER_SET_SIZE = 10;
+  /* soda-water.webp is the plain water bottle, so it belongs to น้ำ; the shop
+     has no plain soda cut-out yet, hence the existing bottle icon for โซดา */
   const MIXER_OPTIONS = [
     { name: 'โค้ก', img: './images/coke.webp' },
-    { name: 'น้ำ', icon: 'mixer' },
-    { name: 'โซดา', img: './images/soda-water.webp' },
+    { name: 'น้ำ', img: './images/soda-water.webp' },
+    { name: 'โซดา', icon: 'spirit' },
     { name: 'สไปรท์', img: './images/sprite.webp' },
   ];
   const mixerPick = new Map();
@@ -1025,10 +1027,13 @@
 
     if (!el.mixerGrid.children.length) {
       el.mixerGrid.innerHTML = MIXER_OPTIONS.map((option) => {
-        const thumb = option.img
+        const art = option.img
           ? `<img class="mixer__thumb" src="${option.img}" alt="" width="52" height="52" loading="lazy" decoding="async" />`
           : `<span class="mixer__thumb mixer__thumb--icon">${iconMarkup(option.icon)}</span>`;
-        return `<div class="mixer__tile" data-mixer="${escapeAttr(option.name)}">
+        /* the whole tile counts as one bottle: the art itself is the button,
+           and the tile behind it takes the same tap */
+        const thumb = `<button class="mixer__thumb-btn" type="button" data-plus="${escapeAttr(option.name)}" aria-label="เพิ่ม ${escapeAttr(option.name)} 1 ขวด">${art}</button>`;
+        return `<div class="mixer__tile" data-mixer="${escapeAttr(option.name)}" data-plus="${escapeAttr(option.name)}">
               ${thumb}
               <span class="mixer__label">${escapeHTML(option.name)}</span>
               <span class="mixer__row">
@@ -1068,20 +1073,20 @@
 
     el.mixerGrid.addEventListener('click', (e) => {
       if (!pendingSet) return;
-      const plus = e.target.closest('[data-plus]');
+      /* minus first: it sits inside a tile that also counts as a "plus" */
       const minus = e.target.closest('[data-minus]');
-      if (plus) {
-        const name = plus.dataset.plus;
-        if (mixerTotal() >= MIXER_SET_SIZE) return;
-        mixerPick.set(name, (mixerPick.get(name) || 0) + 1);
-        renderMixer();
-        return;
-      }
       if (minus) {
         const name = minus.dataset.minus;
         mixerPick.set(name, Math.max(0, (mixerPick.get(name) || 0) - 1));
         renderMixer();
+        return;
       }
+      const plus = e.target.closest('[data-plus]');
+      if (!plus) return;
+      const name = plus.dataset.plus;
+      if (mixerTotal() >= MIXER_SET_SIZE) return;
+      mixerPick.set(name, (mixerPick.get(name) || 0) + 1);
+      renderMixer();
     });
 
     el.mixerConfirm.addEventListener('click', () => {

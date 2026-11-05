@@ -1868,7 +1868,23 @@ body.has-sheet {
   border-radius: var(--radius-sm);
   border: 1px solid var(--line-strong);
   background: var(--surface-soft);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
   transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.mixer__tile:active {
+  background: color-mix(in srgb, var(--red) 10%, var(--surface-soft));
+}
+
+.mixer__thumb-btn {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 52px;
+  border-radius: 10px;
+  cursor: pointer;
 }
 
 .mixer__tile.is-picked {
