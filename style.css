@@ -1218,6 +1218,74 @@ a {
 
 
 
+/* promo cards carry the whole set composition, scaled into the square tile:
+   the same markup as the deck, so the list never shows a lone bottle */
+.card__media--set {
+  /* the tile is a size container, so the composition can be sized in cqw/cqh:
+     percentages would resolve against an indefinite box and fall back to
+     each image's natural size */
+  container-type: size;
+  background: radial-gradient(closest-side at 50% 64%, var(--accent-soft) 0%, var(--surface-soft) 78%);
+}
+
+.card__combo {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.card__media--set .set,
+.card__media--set .set__cluster {
+  height: 100%;
+}
+
+.card__media--set .set__cluster {
+  --cluster-h: 100%;
+  place-items: end center;
+}
+
+.card__media--set .slide__stage {
+  width: 34cqw;
+  height: 76cqh;
+}
+
+.card__media--set .slide__art {
+  /* sized in container units too: a percentage height on the img let the
+     hero bottle overflow the tile and get clipped at the top */
+  width: 34cqw;
+  height: 76cqh;
+}
+
+/* ten bottles across the tile: --x stays a share of the fan box, which is the
+   tile here, so the fan keeps its 5 + 5 shape at any card size */
+.card__media--set .set__fan {
+  width: 100%;
+}
+
+.card__media--set .set__mixer {
+  width: 9.5cqw;
+  /* pull the fan in slightly: the outer bottles are rotated, so their box
+     would poke past the rounded tile edge */
+  left: calc(50% + var(--x, 0%) * 0.86);
+  bottom: calc(var(--y, 4px) * 0.28);
+  filter: drop-shadow(0 3px 4px rgb(0 0 0 / 0.14));
+}
+
+.card__media--set .set__ice {
+  width: 25cqw;
+  right: 14%;
+  bottom: 1%;
+}
+
+.card__media--set .set__floor {
+  bottom: 0;
+  height: 12px;
+}
+
+.card__media--set .set__sparks {
+  display: none;
+}
+
 .card__icon {
   position: relative;
   z-index: 1;

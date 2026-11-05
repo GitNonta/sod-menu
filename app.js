@@ -625,15 +625,20 @@
 
   function cardHTML(item, cat) {
     const src = item.image ? './' + item.image.replace(/^\.\//, '') : null;
-    const media = src
-      ? `<img class="card__img" src="${src}" alt="${escapeAttr(item.name)}" width="320" height="320" loading="lazy" decoding="async" data-icon="${cat.id}" />`
-      : `<span class="card__icon">${iconMarkup(cat.id)}</span>`;
+    /* a promo set is sold as a whole: the list tile shows the same composition
+       as the deck (hero bottle + ten mixers + ice bucket), not one bottle */
+    const combo = setParts(item.name) ? 'spirit' : null;
+    const media = combo
+      ? `<div class="card__combo">${setHTML(item, combo)}</div>`
+      : src
+        ? `<img class="card__img" src="${src}" alt="${escapeAttr(item.name)}" width="320" height="320" loading="lazy" decoding="async" data-icon="${cat.id}" />`
+        : `<span class="card__icon">${iconMarkup(cat.id)}</span>`;
     const price =
       item.price === null || item.price === undefined
         ? '<p class="card__price card__price--ask">สอบถามราคา</p>'
         : `<p class="card__price">${THB(item.price)}</p>`;
     return `<article class="card reveal" data-name="${escapeAttr(item.name.toLowerCase())}">
-      <div class="card__media">${media}</div>
+      <div class="card__media${combo ? ' card__media--set' : ''}">${media}</div>
       <h3 class="card__name">${escapeHTML(item.name)}</h3>
       ${price}
     </article>`;
