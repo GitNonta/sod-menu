@@ -252,14 +252,22 @@
     './images/schweppes-tonic.webp',
   ];
 
-  /* fan layout of the set graphic: --x is a share of the stage width, --r degrees */
+  /* fan layout of the set graphic: --x is a share of the stage width, --r degrees.
+     A spirit set ships with ten mixer bottles, so the fan has ten slots. */
   const FAN = {
     spirit: [
-      { x: -34, r: -16, s: 0.8, y: 20 },
-      { x: -22, r: -10, s: 0.9, y: 10 },
-      { x: -10, r: -4, s: 0.98, y: 2 },
-      { x: 2, r: 3, s: 1.02, y: 8 },
-      { x: 14, r: 10, s: 0.93, y: 18 },
+      /* five a side with a gap in the middle: the hero bottle stands in that
+         gap, so every one of the ten mixers stays visible */
+      { x: -40, r: -16, s: 0.8, y: 34 },
+      { x: -32, r: -12, s: 0.85, y: 27 },
+      { x: -24, r: -8, s: 0.9, y: 21 },
+      { x: -16, r: -4, s: 0.95, y: 14 },
+      { x: -7.5, r: -1, s: 1, y: 8 },
+      { x: 7.5, r: 1, s: 1, y: 8 },
+      { x: 16, r: 4, s: 0.95, y: 14 },
+      { x: 24, r: 8, s: 0.9, y: 21 },
+      { x: 32, r: 12, s: 0.85, y: 27 },
+      { x: 40, r: 16, s: 0.8, y: 34 },
     ],
     beer: [
       { x: -20, r: -11, s: 0.93, y: 8 },

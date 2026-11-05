@@ -529,10 +529,10 @@ a {
     --cluster-h: clamp(266px, 37svh, 380px);
   }
   .set__mixer {
-    --mixw: clamp(52px, 15vw, 68px);
+    --mixw: clamp(40px, 10.5vw, 52px);
   }
   .set__ice {
-    --icew: clamp(94px, 27vw, 122px);
+    --icew: clamp(72px, 19vw, 96px);
   }
 }
 
@@ -718,12 +718,18 @@ a {
   height: 36px;
 }
 
-/* five mixers fanned behind the hero bottle.
+/* the ten mixers fanned behind the hero bottle.
    --x is a share of the stage width, --r degrees, --s scale, --y lift */
 .set__fan {
   position: absolute;
   z-index: 2;
-  inset: 0;
+  /* the fan gets its own, wider box so ten bottles can spread past the
+     narrow stage while staying centred on the hero bottle */
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: min(88vw, 600px);
+  transform: translateX(-50%);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -753,9 +759,9 @@ a {
 .set__ice {
   position: absolute;
   z-index: 5;
-  right: 0;
-  bottom: 6px;
-  width: var(--icew, 94px);
+  right: -4%;
+  bottom: 0;
+  width: var(--icew, 78px);
   height: auto;
   transform: rotate(-5deg);
   transform-origin: 50% 100%;
@@ -1410,10 +1416,10 @@ a {
     --cluster-h: 336px;
   }
   .set__mixer {
-    --mixw: 58px;
+    --mixw: 46px;
   }
   .set__ice {
-    --icew: 108px;
+    --icew: 92px;
   }
   .grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1467,10 +1473,10 @@ a {
     --cluster-h: 400px;
   }
   .set__mixer {
-    --mixw: 66px;
+    --mixw: 52px;
   }
   .set__ice {
-    --icew: 122px;
+    --icew: 104px;
   }
   .card:hover {
     transform: translateY(-2px);
