@@ -243,14 +243,9 @@
   }
 
   /* ── Promotions ────────────────────────────────────────────── */
-  /* the cut-outs already in the package, one of each so the fan looks mixed */
-  const MIXER_SRCS = [
-    './images/coke.webp',
-    './images/sprite.webp',
-    './images/soda-water.webp',
-    './images/schweppes-manao.webp',
-    './images/schweppes-tonic.webp',
-  ];
+  /* the cut-outs already in the package, one of each so the fan looks mixed.
+     Schweppes is not part of the promo set, so it is left out of the fan. */
+  const MIXER_SRCS = ['./images/coke.webp', './images/sprite.webp', './images/soda-water.webp'];
 
   /* fan layout of the set graphic: --x is a share of the stage width, --r degrees.
      A spirit set ships with ten mixer bottles, so the fan has ten slots. */
