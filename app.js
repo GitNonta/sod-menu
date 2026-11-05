@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.4';
+  const ASSET_VERSION = '1.0.5';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -366,10 +366,16 @@
         ? '<p class="slide__price"><span class="slide__price-num">สอบถามราคา</span></p>'
         : `<p class="slide__price"><span class="slide__price-num">${THB(slide.price)}</span><small>เซ็ต</small></p>`;
     const total = state.promoSlides.length || 1;
+    /* the bottle leads the headline and the extras sit under it, so a long
+       "+ มิกเซอร์ 10 ขวด + น้ำแข็ง 1 ถัง" no longer wraps into noise */
+    const parts = setParts(slide.name);
+    const nameHTML = parts
+      ? `<span class="slide__name-bottle">${escapeHTML(parts.bottle)}</span><span class="slide__name-rest">+ มิกเซอร์ ${parts.mixers} ขวด + น้ำแข็ง ${parts.ice} ถัง</span>`
+      : `<span class="slide__name-bottle">${escapeHTML(slide.name)}</span>`;
     return `<article class="slide slide--${kind}" role="group" aria-roledescription="สไลด์" aria-label="${index + 1} จาก ${total}">
       <div class="slide__text">
         <span class="slide__tag">${state.mode === 'before_midnight' ? 'ก่อนเที่ยงคืน' : 'หลังเที่ยงคืน'}</span>
-        <h3 class="slide__name">${escapeHTML(slide.name)}</h3>
+        <h3 class="slide__name">${nameHTML}</h3>
         ${price}
         ${chipsHTML(slide)}
       </div>

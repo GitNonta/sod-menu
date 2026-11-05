@@ -519,7 +519,7 @@ a {
   display: grid;
   grid-template-rows: auto 1fr;
   gap: 6px;
-  padding: 26px var(--pad-l) 68px;
+  padding: 26px var(--pad-l) 60px;
   background: var(--surface);
 }
 
@@ -561,16 +561,35 @@ a {
   letter-spacing: 0.04em;
 }
 
+/* a promo name reads as two lines: the bottle up front, the extras beneath */
 .slide__name {
-  margin: 8px 0 0;
+  margin: 10px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   font-size: clamp(0.96rem, 4.1vw, 1.1rem);
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.35;
   letter-spacing: -0.01em;
 }
 
+.slide__name-bottle {
+  font-size: clamp(1.14rem, 5vw, 1.38rem);
+  font-weight: 700;
+  letter-spacing: -0.022em;
+  line-height: 1.2;
+}
+
+.slide__name-rest {
+  padding-top: 2px;
+  font-size: clamp(0.78rem, 3.3vw, 0.87rem);
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--muted-strong);
+}
+
 .slide__price {
-  margin: 6px 0 0;
+  margin: 10px 0 0;
   font-size: clamp(1.75rem, 8.4vw, 2.4rem);
   font-weight: 700;
   line-height: 1.05;
@@ -587,6 +606,26 @@ a {
   vertical-align: middle;
 }
 
+/* the count-up lands with one soft pop instead of arriving flat */
+.slide__price-num {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+}
+.slide.is-active .slide__price-num {
+  animation: pricePop 0.55s 0.5s cubic-bezier(0.22, 1.35, 0.36, 1) backwards;
+}
+
+@keyframes pricePop {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .slide__chips {
   display: flex;
   flex-wrap: wrap;
@@ -596,12 +635,27 @@ a {
   list-style: none;
 }
 .slide__chips li {
-  padding: 5px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: var(--surface-soft);
   color: var(--muted-strong);
   font-size: 0.72rem;
+  line-height: 1.2;
+}
+.slide__chips li::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+.slide__chips li + li::before {
+  background: var(--line-strong);
 }
 
 /* ── set composition (hero bottle + mixer fan + ice bucket) ── */
@@ -623,6 +677,9 @@ a {
   place-items: end center;
   perspective: 900px;
   transform-style: preserve-3d;
+  /* the set breathes up into the empty fold above it instead of hugging the
+     bottom edge, which is what made the page look bottom-heavy */
+  margin-block-end: 4vh;
 }
 
 /* warm light pooled behind the products */
@@ -763,12 +820,23 @@ a {
   transform-origin: 50% 100%;
 }
 
+/* depth: the outermost bottles lose a little light, so the fan reads as an arc
+   instead of a flat row of cut-outs */
+.set__fan li:nth-child(1),
+.set__fan li:nth-child(10) {
+  filter: drop-shadow(0 5px 8px rgb(0 0 0 / 0.13)) brightness(0.9);
+}
+.set__fan li:nth-child(2),
+.set__fan li:nth-child(9) {
+  filter: drop-shadow(0 6px 9px rgb(0 0 0 / 0.14)) brightness(0.95);
+}
+
 /* ice bucket in front, right of the bottle */
 .set__ice {
   position: absolute;
   z-index: 5;
-  right: -4%;
-  bottom: 0;
+  right: 15%;
+  bottom: -4px;
   width: var(--icew, 78px);
   height: auto;
   transform: rotate(-5deg);
@@ -881,19 +949,19 @@ a {
   opacity: 0;
 }
 .slide.is-active .slide__tag {
-  animation: enterUp 0.42s 0.05s ease both;
+  animation: enterUp 0.5s 0.06s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .slide.is-active .slide__name {
-  animation: enterUp 0.45s 0.12s ease both;
+  animation: enterUp 0.58s 0.12s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .slide.is-active .slide__price {
-  animation: enterUp 0.5s 0.2s ease both;
+  animation: enterUp 0.62s 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .slide.is-active .slide__chips {
-  animation: enterUp 0.45s 0.28s ease both;
+  animation: enterUp 0.56s 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .slide.is-active .slide__stage {
-  animation: enterFade 0.5s 0.08s ease both;
+  animation: enterFade 0.62s 0.06s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .slide.is-active .slide__art,
 .slide.is-active .slide__stage .slide__icon {
@@ -930,8 +998,8 @@ a {
 }
 
 @keyframes bobSoft {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(0.5deg); }
 }
 
 @keyframes glowPulse {
@@ -995,11 +1063,13 @@ a {
   height: 3px;
   border-radius: 999px;
   background: var(--line-strong);
-  transition: width 0.25s ease, background 0.25s ease;
+  transition: width 0.32s cubic-bezier(0.22, 1, 0.36, 1), background 0.32s ease,
+    box-shadow 0.32s ease;
 }
 .slider__dot.is-active::before {
-  width: 26px;
+  width: 28px;
   background: var(--ink);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 7%, transparent);
 }
 
 .hero__cta {
@@ -1194,7 +1264,33 @@ a {
   border-radius: var(--radius);
   border: 1px solid var(--line);
   background: var(--surface);
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.24s ease,
+    box-shadow 0.3s ease;
+}
+
+/* the list settles in tile by tile; `backwards` keeps the hover lift working */
+.grid > .card {
+  animation: cardRise 0.55s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.grid > .card:nth-child(1) { animation-delay: 0.02s; }
+.grid > .card:nth-child(2) { animation-delay: 0.06s; }
+.grid > .card:nth-child(3) { animation-delay: 0.1s; }
+.grid > .card:nth-child(4) { animation-delay: 0.14s; }
+.grid > .card:nth-child(5) { animation-delay: 0.18s; }
+.grid > .card:nth-child(6) { animation-delay: 0.22s; }
+.grid > .card:nth-child(7) { animation-delay: 0.26s; }
+.grid > .card:nth-child(8) { animation-delay: 0.3s; }
+.grid > .card:nth-child(n + 9) { animation-delay: 0.34s; }
+
+@keyframes cardRise {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* the photo bleeds to the card edge, so the tile always looks filled */
@@ -1545,12 +1641,15 @@ a {
   background: color-mix(in srgb, var(--surface) 93%, transparent);
   backdrop-filter: blur(10px);
   box-shadow: 0 -6px 22px rgb(22 21 15 / 0.1);
-  animation: order-rise 0.26s ease-out;
+  animation: order-rise 0.42s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes order-rise {
   from {
     transform: translateY(100%);
+  }
+  70% {
+    transform: translateY(-6px);
   }
   to {
     transform: none;
@@ -1630,7 +1729,8 @@ body.has-sheet {
   position: absolute;
   inset: 0;
   background: var(--ground);
-  animation: sheet-fade 0.22s ease-out;
+  backdrop-filter: blur(2px);
+  animation: sheet-fade 0.3s ease-out;
 }
 
 .sheet__panel {
@@ -1645,7 +1745,7 @@ body.has-sheet {
   border-top: 1px solid var(--line);
   background: var(--surface);
   box-shadow: 0 -10px 30px rgb(0 0 0 / 0.2);
-  animation: sheet-rise 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: sheet-rise 0.42s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes sheet-fade {
@@ -1659,8 +1759,12 @@ body.has-sheet {
 
 @keyframes sheet-rise {
   from {
-    transform: translateY(30px);
+    transform: translateY(42px) scale(0.99);
     opacity: 0;
+  }
+  62% {
+    transform: translateY(-3px) scale(1.001);
+    opacity: 1;
   }
   to {
     transform: none;
