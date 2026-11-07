@@ -18,7 +18,7 @@
       if (localStorage.getItem('sod-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
     } catch (e) {}
   </script>
-  <link rel="stylesheet" href="./style.css?v=1.1.8" />
+  <link rel="stylesheet" href="./style.css?v=1.1.9" />
 </head>
 <body class="jnl-page">
   <header class="site-header">
@@ -180,6 +180,7 @@
             '<div class="jnl__body">' +
               '<p class="jnl__name">' + escapeHTML(row.name || '—') +
                 '<span class="jnl__party">' + escapeHTML(String(row.party || 1)) + ' คน</span>' +
+                (row.table ? '<span class="jnl__table">โต๊ะ ' + escapeHTML(row.table) + '</span>' : '') +
               '</p>' +
               '<p class="jnl__meta">' + phone +
                 (phone ? ' · ' : '') +

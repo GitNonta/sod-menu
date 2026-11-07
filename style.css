@@ -2834,6 +2834,149 @@ select.field__input {
   color: var(--muted);
 }
 
+.jnl__table {
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--muted-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Floor plan picker inside the reservation sheet ────────── */
+.plan {
+  margin: 12px 0 0;
+}
+
+.plan__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.plan__select {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.plan__select b {
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.plan__change {
+  flex: 0 0 auto;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--muted-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.plan__scroll {
+  margin-top: 8px;
+  height: 42vh;
+  min-height: 230px;
+  overflow: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #0b1626;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.plan__canvas {
+  position: relative;
+  width: 190%;
+  min-width: 540px;
+  transition: width 0.25s ease;
+}
+
+.plan__canvas.is-fit {
+  width: 100%;
+  min-width: 0;
+}
+
+.plan__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.plan__spot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  transition: background 0.16s ease, border-color 0.16s ease, transform 0.2s cubic-bezier(0.22, 1.35, 0.36, 1);
+}
+
+.plan__spot:hover {
+  border-color: rgb(255 255 255 / 0.8);
+}
+
+.plan__spot:active {
+  transform: translate(-50%, -50%) scale(0.92);
+}
+
+.plan__spot.is-picked {
+  border-color: #ffd166;
+  background: rgb(255 209 102 / 0.3);
+  box-shadow: 0 0 0 3px rgb(255 209 102 / 0.35);
+}
+
+.plan__spot.is-busy {
+  border-color: rgb(255 255 255 / 0.18);
+  background: rgb(8 12 22 / 0.66);
+  cursor: not-allowed;
+}
+
+.plan__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 8px 0 0;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.plan__key {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.plan__key::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+}
+
+.plan__key.is-busy::before {
+  background: #0b1626;
+  border-color: #5c6472;
+}
+
+.plan__key.is-picked::before {
+  background: #ffd166;
+  border-color: #ffd166;
+}
+
+.plan__hint {
+  margin-left: auto;
+}
+
 @media (max-width: 380px) {
   .jnl__row {
     grid-template-columns: 52px minmax(0, 1fr);

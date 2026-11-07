@@ -13,7 +13,7 @@
  */
 
 const TAB_NAME = 'Reservations';
-const HEADERS = ['รับเมื่อ', 'รหัส', 'ชื่อ', 'เบอร์โทร', 'วันที่จอง', 'เวลา', 'จำนวนคน', 'หมายเหตุ', 'สถานะ'];
+const HEADERS = ['รับเมื่อ', 'รหัส', 'ชื่อ', 'เบอร์โทร', 'วันที่จอง', 'เวลา', 'จำนวนคน', 'หมายเหตุ', 'สถานะ', 'โต๊ะ'];
 const STATUSES = ['รอยืนยัน', 'ยืนยันแล้ว', 'ยกเลิก'];
 const TZ = 'Asia/Bangkok';
 
@@ -30,6 +30,7 @@ function setup() {
   sheet.getRange('A:A').setNumberFormat('dd/MM/yyyy HH:mm');
   sheet.getRange('D:D').setNumberFormat('@');
   sheet.getRange('H:H').setNumberFormat('@');
+  sheet.getRange('J:J').setNumberFormat('@');
   sheet.getRange('I:I').setDataValidation(
     SpreadsheetApp.newDataValidation()
       .requireValueInList(STATUSES, true)
@@ -46,6 +47,7 @@ function setup() {
   sheet.setColumnWidth(7, 80);
   sheet.setColumnWidth(8, 220);
   sheet.setColumnWidth(9, 100);
+  sheet.setColumnWidth(10, 70);
 
   Logger.log('พร้อมใช้งานแล้ว: %s', ss.getUrl());
   return ss.getUrl();
@@ -95,6 +97,7 @@ function doPost(e) {
       Number(payload.party) || 1,
       String(payload.note || '').slice(0, 200),
       STATUSES[0],
+      String(payload.table || '').toUpperCase().slice(0, 8),
     ]);
 
     return json_({ ok: true, code: code, row: sheet.getLastRow() });
@@ -122,6 +125,9 @@ function doGet(e) {
       if (sent !== String(expected)) return json_({ ok: false, error: 'unauthorized' });
       return list_(params.date);
     }
+
+    /* ฝั่งลูกค้าใช้ตารางว่าง/ไม่ว่างบนผัง — คืนแค่เลขโต๊ะกับเวลา ไม่มีข้อมูลส่วนตัว จึงไม่ต้องใช้ token */
+    if (action === 'busy') return busy_(params.date);
 
     if (expected && sent !== String(expected)) return json_({ ok: false, error: 'unauthorized' });
     const sheet = sheet_();
@@ -152,6 +158,7 @@ function list_(rawDate) {
         party: Number(row[6]) || 0,
         note: String(row[7] || ''),
         status: String(row[8] || STATUSES[0]),
+        table: String(row[9] || '').toUpperCase(),
         created_at:
           row[0] instanceof Date
             ? Utilities.formatDate(row[0], TZ, 'yyyy-MM-dd HH:mm')
@@ -168,6 +175,27 @@ function list_(rawDate) {
   }, 0);
 
   return json_({ ok: true, service: 'sod-reserve', date: date, count: rows.length, people: people, rows: rows });
+}
+
+/** โต๊ะที่ถูกจองแล้วของวันนั้น — ใช้ระบายสีผังฝั่งลูกค้า (ไม่คืนชื่อ/เบอร์) */
+function busy_(rawDate) {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(String(rawDate || '')) ? String(rawDate) : today_();
+  const sheet = sheet_();
+  const last = sheet.getLastRow();
+  const busy = [];
+
+  if (last > 1) {
+    const values = sheet.getRange(2, 1, last - 1, HEADERS.length).getValues();
+    values.forEach(function (row) {
+      const table = String(row[9] || '').trim().toUpperCase();
+      if (!table) return;
+      if (String(row[8] || '') === 'ยกเลิก') return;
+      if (dateOf_(row[4]) !== date) return;
+      busy.push({ table: table, time: String(row[5]).slice(0, 5) });
+    });
+  }
+
+  return json_({ ok: true, service: 'sod-reserve', date: date, busy: busy });
 }
 
 function today_() {
@@ -215,6 +243,7 @@ function validate_(p) {
   if (!/^\d{2}:\d{2}$/.test(String(p.time || ''))) return 'invalid time';
   const party = Number(p.party);
   if (!party || party < 1 || party > 50) return 'invalid party size';
+  if (p.table && !/^[A-Z]{0,3}\d{1,2}$/i.test(String(p.table).trim())) return 'invalid table';
   return '';
 }
 

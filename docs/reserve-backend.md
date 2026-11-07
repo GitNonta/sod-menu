@@ -38,7 +38,10 @@ Apps Script Web App  ──►  Google Sheet "Reservations" (1 แถว / 1 ก
 (ครั้งแรก Google จะขออนุญาตสิทธิ์ — เลือกบัญชี → *Advanced* → *Go to sod-reserve (unsafe)* → Allow)
 
 ตรวจผล: ในชีตจะมีแท็บ **Reservations** พร้อมหัวตาราง
-`รับเมื่อ | รหัส | ชื่อ | เบอร์โทร | วันที่จอง | เวลา | จำนวนคน | หมายเหตุ | สถานะ`
+`รับเมื่อ | รหัส | ชื่อ | เบอร์โทร | วันที่จอง | เวลา | จำนวนคน | หมายเหตุ | สถานะ | โต๊ะ`
+
+> คอลัมน์ **โต๊ะ** (J) อยู่ท้ายตารางเพื่อไม่ให้ชีตเก่าที่มีข้อมูลอยู่แล้วเลื่อนคอลัมน์
+> ถ้าเคยรัน `setup()` ด้วยโค้ดเวอร์ชันก่อนหน้า ให้รันซ้ำอีกครั้งเพื่อเพิ่มหัวคอลัมน์ J
 
 ## 3. Deploy เป็น Web App
 
@@ -49,12 +52,36 @@ Apps Script Web App  ──►  Google Sheet "Reservations" (1 แถว / 1 ก
    - **Who has access:** `Anyone` ← จำเป็น ไม่งั้นลูกค้าที่ไม่ได้ล็อกอินจะส่งไม่ได้
 3. **Deploy** แล้วคัดลอก **Web app URL** (ลงท้าย `/exec`)
 
+### ผังโต๊ะ (กดจองจากผัง)
+
+ในชีตจองเพิ่มบล็อก `plan` ไว้ใน `shop.reserve` — จุดที่กดได้คือพิกัดเป็น **เปอร์เซ็นต์ของรูป**
+ไม่ใช่พิกเซล เปลี่ยนรูปหรือขนาดจอแล้วยังตรง:
+
+```json
+"plan": {
+  "enabled": true,
+  "image": "images/floorplan.jpg",
+  "tables": [
+    { "id": "24", "label": "24", "x": 60.3, "y": 40.6, "w": 5.4, "h": 5.4 },
+    { "id": "A10", "label": "A10", "x": 93.1, "y": 73.8, "w": 6.4, "h": 4.8 }
+  ]
+}
+```
+
+- `x`/`y` = จุดกึ่งกลางป้ายโต๊ะบนรูป (0–100) — `w`/`h` = ขนาดพื้นที่กด (0–100)
+- `id` คือค่าที่บันทึกลงคอลัมน์ **โต๊ะ** ของชีต — ใช้ตัวเลข/ตัวอักษรสั้น ๆ (`24`, `A10`, `VIP2`)
+- ผังทั้งหมด 106 โต๊ะของร้านอยู่ใน `data/menu.json` แล้ว (ตัวเลข 1–45, A1–A17, B1–B31, SB1–SB8, VIP1/2/5/6/7)
+- ถ้าจะเพิ่มโต๊ะ: เปิดรูปในโปรแกรมแต่งภาพ อ่านพิกัดเป็น % แล้วเพิ่ม entry ตามรูปแบบข้างบน
+- **สถานะถูกจอง** มาจาก `?action=busy&date=YYYY-MM-DD` ของ Apps Script เดียวกัน
+  ซึ่งคืนเฉพาะ `{table, time}` ของวันที่นั้น (ไม่มีชื่อ/เบอร์) จึงเปิดให้เรียกได้โดยไม่ต้องมี token
+  — ถ้าอยากปิด ให้ลบ `if (action === 'busy')` ใน `doGet` ออก
+
 ### ทดสอบด้วย curl
 
 ```bash
 curl -s -X POST "https://script.google.com/macros/s/XXXX/exec?token=sod-9f2c7b41e8" \
   -H 'Content-Type: text/plain;charset=utf-8' \
-  --data '{"code":"SOD-TEST1","name":"ทดสอบ","phone":"0812345678","date":"2026-11-08","time":"19:30","party":4,"note":"curl"}'
+  --data '{"code":"SOD-TEST1","name":"ทดสอบ","phone":"0812345678","date":"2026-11-08","time":"19:30","party":4,"table":"24","note":"curl"}'
 ```
 
  sollte ตอบ `{"ok":true,"code":"SOD-TEST1","row":2}` และมีแถวใหม่ในชีต (ลบแถวทดสอบทิ้งได้)
@@ -168,3 +195,5 @@ curl -s "https://script.google.com/macros/s/XXXX/exec?action=list&date=2026-11-0
 | ข้อความ error ใน Apps Script | ยังไม่ได้อนุญาตสิทธิ์/ยังไม่ตั้ง `SHEET_ID` | ดู Executions ในหน้า Apps Script |
 | `today.html` ขึ้น "รหัสผ่านร้านไม่ถูกต้อง" | token ต่างจาก `SHARED_TOKEN` หรือยังไม่ได้ตั้ง | ล้างค่าใน localStorage (`sod-admin-token`) แล้วกรอกใหม่/ตรวจ Script Properties |
 | `today.html` ขึ้น "โหลดรายการไม่สำเร็จ" | ยัง deploy เวอร์ชันเก่าที่ไม่มี `action=list` / URL ผิด | Manage deployments → New version → Deploy แล้วรีเฟรช |
+| ผังไม่ขึ้น / กดโต๊ะไม่ได้ | `shop.reserve.plan` ไม่มี `tables` หรือ `enabled: false` | ตรวจ JSON ใน `data/menu.json` และชื่อไฟล์ `images/floorplan.jpg` |
+| ผังขึ้นแต่ไม่มีสถานะถูกจอง | ยังไม่ deploy เวอร์ชันที่มี `action=busy` หรือยังไม่ตั้ง `webhook` | Deploy เวอร์ชันใหม่ + ตรวจ `shop.reserve.webhook` |

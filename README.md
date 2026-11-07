@@ -15,7 +15,7 @@ app.js              โหลด data/menu.json แล้ว render ทั้ง
                     + ช่วงเวลาโปร ก่อน/หลังเที่ยงคืน (จำค่าใน localStorage คีย์ `sod-promo-mode`)
 data/menu.json      แหล่งข้อมูลเดียว: หมวด, เมนู, ราคา, โปรโมชัน, ตั้งค่าจองโต๊ะ, version
 today.html          หน้ารายการจองของวันสำหรับพนักงาน (อ่านจาก Google Sheet ผ่าน Apps Script + token)
-images/             รูปสินค้า (พื้นหลังโปร่งใส) + logo.jpg + favicon.png
+images/             รูปสินค้า (พื้นหลังโปร่งใส) + logo.jpg + favicon.png + floorplan.jpg (ผังโต๊ะ)
 reserve-webhook.gs  ตัวรับการจอง (Google Apps Script) สำหรับต่อ Google Sheet
 docs/               คู่มือติดตั้ง/ตั้งค่า (reserve-backend.md = ระบบรับจอง)
 .nojekyll           จำเป็นสำหรับ GitHub Pages (ปิด Jekyll)
@@ -54,6 +54,7 @@ python3 -m http.server 8123
 - ปุ่ม **จองโต๊ะ** บน header → ชีตฟอร์ม (ชื่อ, เบอร์, วันที่, เวลา, จำนวนคน, หมายเหตุ) ตรวจเวลาเปิดร้าน/จำนวนคนให้อัตโนมัติ
 - ค่าทั้งหมดอยู่ที่ `shop.reserve` ใน `data/menu.json`: `enabled`, `hint`, `open_time`, `close_time`, `max_party`, `max_days`, `webhook`, `line_url`, `phone`
 - ถ้าตั้ง `webhook` → ส่ง JSON เข้าระบบร้านทันที (POST `text/plain` เพื่อเลี่ยง CORS preflight); ถ้าไม่ตั้ง → บันทึกในเครื่องลูกค้า + ให้ส่ง LINE/โทรเอง
+- ตั้งค่าผังโต๊ะที่ `shop.reserve.plan` (รูป + พิกัดโต๊ะเป็น % ของรูป) — ผู้ใช้กดโต๊ะบนผังเพื่อจอง, โต๊ะที่ถูกจองแล้วจะถูกระบายจาก `?action=busy` ของ Apps Script
 - ตัวรับมาตรฐานคือ **Google Sheet + Apps Script** ([`reserve-webhook.gs`](reserve-webhook.gs)) — วิธีติดตั้งทีละขั้นอยู่ที่ [`docs/reserve-backend.md`](docs/reserve-backend.md)
 - พนักงานดูรายการจองของวันที่ **`today.html`** (อ่านอย่างเดียว, ต้องกรอก `SHARED_TOKEN` ครั้งแรก, รีเฟรชเองทุก 60 วิ) — รายละเอียดอยู่ที่คู่มือข้อ 6
 

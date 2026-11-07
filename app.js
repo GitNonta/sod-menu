@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.8';
+  const ASSET_VERSION = '1.0.9';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -103,6 +103,11 @@
     reserveCall: $('reserveCall'),
     reserveCopy: $('reserveCopy'),
     reserveAgain: $('reserveAgain'),
+    planBox: $('planBox'),
+    planCanvas: $('planCanvas'),
+    planScroll: $('planScroll'),
+    planPick: $('planPick'),
+    planFit: $('planFit'),
   };
 
   const THB = (n) => '฿' + Number(n).toLocaleString('th-TH');
@@ -1252,10 +1257,14 @@
     line_url: '',
     phone: '',
     hint: 'กรอกข้อมูลให้ครบ แล้วรอร้านยืนยันอีกครั้ง',
+    plan: null,
   };
 
   let reserveCurrent = null;
   let reserveReturnFocus = null;
+  let pickedTable = null;
+  let planBusy = new Map();
+  let planBuilt = false;
 
   function reserveConfig() {
     const raw = (state.data && state.data.shop && state.data.shop.reserve) || {};
@@ -1319,12 +1328,130 @@
     }
   }
 
+  /* ── Floor plan: the guest taps the table on the shop's own map ───────
+     Tables come from shop.reserve.plan in data/menu.json as percentage
+     coordinates of the image, so the map can be replaced without touching code.
+     Occupied tables are read from the same Apps Script (?action=busy) which
+     returns only table + time, never the guest's details. */
+  function planConfig() {
+    const plan = reserveConfig().plan;
+    if (!plan || plan.enabled === false) return null;
+    if (!Array.isArray(plan.tables) || !plan.tables.length) return null;
+    return plan;
+  }
+
+  function planTableLabel(id) {
+    const plan = planConfig();
+    const hit = plan && plan.tables.find((t) => t.id === id);
+    return hit ? hit.label || hit.id : id;
+  }
+
+  function buildPlan() {
+    const plan = planConfig();
+    if (!plan || planBuilt || !el.planCanvas) return;
+    const spots = plan.tables
+      .map((t) => {
+        const w = Number(t.w) || 5.2;
+        const h = Number(t.h) || 5.2;
+        return `<button class="plan__spot" type="button" data-table="${escapeAttr(t.id)}" aria-label="โต๊ะ ${escapeAttr(t.label || t.id)}" aria-pressed="false" style="left:${Number(t.x)}%;top:${Number(t.y)}%;width:${w}%;height:${h}%"></button>`;
+      })
+      .join('');
+    el.planCanvas.innerHTML = `<img class="plan__img" src="${escapeAttr(plan.image || './images/floorplan.jpg')}" alt="ผังโต๊ะของร้าน" loading="lazy" draggable="false" />${spots}`;
+    planBuilt = true;
+  }
+
+  function paintPlan() {
+    if (!el.planCanvas) return;
+    el.planCanvas.querySelectorAll('.plan__spot').forEach((spot) => {
+      const id = spot.dataset.table;
+      const busyAt = planBusy.get(id);
+      spot.classList.toggle('is-picked', id === pickedTable);
+      spot.classList.toggle('is-busy', Boolean(busyAt));
+      spot.setAttribute('aria-pressed', id === pickedTable ? 'true' : 'false');
+      if (busyAt) spot.title = `ถูกจอง ${busyAt} น.`;
+    });
+    if (el.planPick) {
+      el.planPick.innerHTML = pickedTable
+        ? `เลือกแล้ว <b>โต๊ะ ${escapeHTML(planTableLabel(pickedTable))}</b> · กรอกข้อมูลด้านล่าง`
+        : 'แตะโต๊ะบนผังเพื่อเลือก';
+    }
+  }
+
+  async function loadPlanBusy() {
+    const cfg = reserveConfig();
+    const plan = planConfig();
+    if (!plan) return;
+    if (!cfg.webhook) {
+      planBusy = new Map();
+      paintPlan();
+      return;
+    }
+    const prev = planBusy;
+    try {
+      const url = new URL(cfg.webhook, window.location.href);
+      url.searchParams.set('action', 'busy');
+      url.searchParams.set('date', el.reserveDate.value || isoDate(new Date()));
+      const res = await fetch(url.toString(), { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const next = new Map();
+      ((data && data.busy) || []).forEach((row) => {
+        const id = String(row.table || '').toUpperCase();
+        if (id) next.set(id, String(row.time || ''));
+      });
+      planBusy = next;
+    } catch (err) {
+      /* the map still works without occupancy — every table stays tappable */
+      console.warn('[reserve] occupancy unavailable:', err);
+      planBusy = prev;
+    }
+    paintPlan();
+  }
+
+  function pickTable(id) {
+    const first = !pickedTable;
+    pickedTable = pickedTable === id ? null : id;
+    paintPlan();
+    if (first && pickedTable && el.reserveForm) {
+      const panel = el.reserveSheet.querySelector('.sheet__panel');
+      if (panel) {
+        const top = Math.max(0, el.reserveForm.offsetTop - 18);
+        panel.scrollTo({ top, behavior: reduceMotion ? 'auto' : 'smooth' });
+      }
+    }
+  }
+
+  function wirePlan() {
+    if (!el.planCanvas) return;
+    el.planCanvas.addEventListener('click', (event) => {
+      const spot = event.target.closest('.plan__spot');
+      if (!spot) return;
+      const id = spot.dataset.table;
+      if (planBusy.has(id)) {
+        toast(`โต๊ะ ${planTableLabel(id)} ถูกจองแล้ว — เลือกโต๊ะอื่น`);
+        return;
+      }
+      pickTable(id);
+    });
+    el.planFit?.addEventListener('click', () => {
+      const fit = el.planCanvas.classList.toggle('is-fit');
+      el.planFit.textContent = fit ? 'ขยาย' : 'ย่อ/ขยาย';
+      el.planFit.setAttribute('aria-pressed', fit ? 'true' : 'false');
+    });
+    el.reserveDate?.addEventListener('change', () => {
+      pickedTable = null;
+      paintPlan();
+      loadPlanBusy();
+    });
+  }
+
   function reserveMessage(rec) {
     return [
       'จองโต๊ะ SOD! signature',
       `รหัส: ${rec.code}`,
       `ชื่อ: ${rec.name}`,
       `เบอร์: ${rec.phone}`,
+      rec.table ? `โต๊ะ: ${rec.table}` : '',
       `วันที่: ${thaiShortDate(rec.date)} เวลา ${rec.time} น.`,
       `จำนวน: ${rec.party} คน`,
       rec.note ? `หมายเหตุ: ${rec.note}` : '',
@@ -1357,6 +1484,10 @@
       ).join('');
       el.reserveParty.value = String(picked >= 1 && picked <= max ? picked : Math.min(2, max));
     }
+    if (el.planBox) {
+      el.planBox.hidden = !planConfig();
+      if (planConfig()) buildPlan();
+    }
     if (el.reserveLast) {
       const last = readReserveRecord();
       const today = isoDate(new Date());
@@ -1377,7 +1508,10 @@
     const cfg = reserveConfig();
     if (cfg.enabled === false) return;
     reserveReturnFocus = document.activeElement;
+    pickedTable = null;
     syncReserveUI();
+    paintPlan();
+    loadPlanBusy();
     el.reserveForm.hidden = false;
     el.reserveDone.hidden = true;
     el.reserveErr.hidden = true;
@@ -1423,6 +1557,7 @@
     const note = el.reserveNote.value.trim();
     const maxParty = Math.max(1, Number(cfg.max_party) || 20);
 
+    if (planConfig() && !pickedTable) return { error: 'แตะเลือกโต๊ะบนผังก่อนยืนยันการจอง' };
     if (name.length < 2) return { error: 'กรุณากรอกชื่อผู้จอง' };
     if (phone.length < 9 || phone.length > 10) return { error: 'กรุณากรอกเบอร์โทรให้ครบ (9–10 หลัก)' };
     if (!date) return { error: 'กรุณาเลือกวันที่ต้องการจอง' };
@@ -1446,6 +1581,7 @@
         date,
         time,
         party,
+        table: pickedTable ? planTableLabel(pickedTable) : '',
         note,
         created_at: new Date().toISOString(),
       },
@@ -1463,6 +1599,7 @@
       ['วันเวลา', `${thaiShortDate(rec.date)} · ${rec.time} น.`],
       ['จำนวน', `${rec.party} คน`],
     ];
+    if (rec.table) rows.push(['โต๊ะ', rec.table]);
     if (rec.note) rows.push(['หมายเหตุ', rec.note]);
     el.reserveSummary.innerHTML = rows
       .map(([k, v]) => `<div class="reserve__row"><dt>${escapeHTML(k)}</dt><dd>${escapeHTML(String(v))}</dd></div>`)
@@ -1562,6 +1699,9 @@
       el.reserveNote.value = '';
       el.reserveSubmit.disabled = false;
       el.reserveSubmit.textContent = 'ยืนยันการจอง';
+      pickedTable = null;
+      paintPlan();
+      loadPlanBusy();
       el.reserveName.focus();
     });
     el.reserveLast?.addEventListener('click', () => {
@@ -1637,6 +1777,7 @@
   wireMixer();
   wireSheet();
   wireReserve();
+  wirePlan();
   wireToTop();
   wireTabs();
   wireScrollSpy();

@@ -31,7 +31,7 @@
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;900&display=swap" /></noscript>
   <!-- bump the ?v= stamp whenever style.css or app.js changes: GitHub Pages
        caches both for 10 minutes, so a returning visitor would keep the old design -->
-  <link rel="stylesheet" href="./style.css?v=1.1.8" />
+  <link rel="stylesheet" href="./style.css?v=1.1.9" />
 </head>
 <body>
   <!-- ── Intro animation (skippable) ───────────────────────────── -->
@@ -219,6 +219,24 @@
         <button class="sheet__close" id="reserveX" type="button" aria-label="ปิดการจองโต๊ะ">✕</button>
       </header>
       <p class="reserve__hint" id="reserveHint">กรอกข้อมูลให้ครบ แล้วรอร้านยืนยันอีกครั้ง</p>
+
+      <!-- ── Floor plan: tap a table, then fill the form for that table ── -->
+      <div class="plan" id="planBox" hidden>
+        <div class="plan__head">
+          <p class="plan__select" id="planPick" aria-live="polite">แตะโต๊ะบนผังเพื่อเลือก</p>
+          <button class="plan__change" id="planFit" type="button">ย่อ/ขยาย</button>
+        </div>
+        <div class="plan__scroll" id="planScroll">
+          <div class="plan__canvas" id="planCanvas"></div>
+        </div>
+        <p class="plan__legend">
+          <span class="plan__key is-free">ว่าง</span>
+          <span class="plan__key is-busy">ถูกจอง</span>
+          <span class="plan__key is-picked">ที่เลือก</span>
+          <span class="plan__hint">เลื่อนผังในกรอบได้</span>
+        </p>
+      </div>
+
       <button class="reserve__last" id="reserveLast" type="button" hidden></button>
 
       <form class="reserve__form" id="reserveForm" novalidate>
@@ -270,6 +288,6 @@
   <button class="to-top" id="toTop" type="button" aria-label="กลับขึ้นด้านบน" hidden>↑</button>
   <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
 
-  <script src="./app.js?v=1.1.8" defer></script>
+  <script src="./app.js?v=1.1.9" defer></script>
 </body>
 </html>
