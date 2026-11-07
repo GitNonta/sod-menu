@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.11';
+  const ASSET_VERSION = '1.0.12';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -106,6 +106,7 @@
     planBox: $('planBox'),
     planCanvas: $('planCanvas'),
     planScroll: $('planScroll'),
+    planStatus: $('planStatus'),
     planPick: $('planPick'),
     planFit: $('planFit'),
   };
@@ -1264,6 +1265,7 @@
   let reserveReturnFocus = null;
   let pickedTables = [];
   let planBusy = new Map();
+  let planLocks = new Map();
   let planBuilt = false;
   let planIndex = new Map();
 
@@ -1362,6 +1364,16 @@
     return null;
   }
 
+  /* a table the shop closed off for that day (today.html → ล็อคโต๊ะ) */
+  function planLockAt(table) {
+    const ids = planTableIds(table);
+    for (let i = 0; i < ids.length; i += 1) {
+      const hit = planLocks.get(ids[i].trim().toUpperCase());
+      if (hit !== undefined) return hit;
+    }
+    return null;
+  }
+
   function pickedLabels() {
     return pickedTables.map((id) => planTableLabel(id));
   }
@@ -1382,16 +1394,45 @@
     planBuilt = true;
   }
 
+  /* one-line status under the map: how many tables are still free and which are taken */
+  function planSummary() {
+    const plan = planConfig();
+    if (!plan) return '';
+    if (!reserveConfig().webhook) return 'ยังไม่ได้เชื่อมระบบร้าน — สถานะโต๊ะจะขึ้นเมื่อตั้ง webhook';
+    let free = 0;
+    const busyList = [];
+    const lockList = [];
+    plan.tables.forEach((t) => {
+      const label = t.label || t.id;
+      if (planLockAt(t) !== null) lockList.push(label);
+      else if (planBusyAt(t) !== null) busyList.push(label);
+      else free += 1;
+    });
+    const short = (list) => (list.length > 6 ? `${list.slice(0, 6).join(', ')} …` : list.join(', '));
+    const parts = [`ว่าง ${free} โต๊ะ`];
+    if (busyList.length) parts.push(`ถูกจอง ${busyList.length}: ${short(busyList)}`);
+    if (lockList.length) parts.push(`ปิดโดยร้าน ${lockList.length}: ${short(lockList)}`);
+    if (!busyList.length && !lockList.length) parts.push('ว่างทั้งหมด');
+    return parts.join(' · ');
+  }
+
   function paintPlan() {
     if (!el.planCanvas) return;
     el.planCanvas.querySelectorAll('.plan__spot').forEach((spot) => {
       const id = spot.dataset.table;
-      const busyAt = planBusyAt(planIndex.get(id) || { id });
+      const table = planIndex.get(id) || { id };
+      const lockedAt = planLockAt(table);
+      const busyAt = lockedAt === null ? planBusyAt(table) : null;
       const picked = pickedTables.includes(id);
       spot.classList.toggle('is-picked', picked);
-      spot.classList.toggle('is-busy', Boolean(busyAt));
+      spot.classList.toggle('is-locked', lockedAt !== null);
+      spot.classList.toggle('is-busy', busyAt !== null);
       spot.setAttribute('aria-pressed', picked ? 'true' : 'false');
-      if (busyAt) spot.title = `ถูกจอง ${busyAt} น.`;
+      spot.setAttribute('aria-disabled', lockedAt !== null || busyAt !== null ? 'true' : 'false');
+      if (lockedAt) spot.title = `ปิดโดยร้าน · ${lockedAt}`;
+      else if (lockedAt !== null) spot.title = 'ปิดโดยร้าน';
+      else if (busyAt) spot.title = `ถูกจอง ${busyAt} น.`;
+      else if (busyAt !== null) spot.title = 'ถูกจองแล้ว';
       else spot.removeAttribute('title');
     });
     if (el.planPick) {
@@ -1404,6 +1445,7 @@
         el.planPick.innerHTML = `เลือกแล้ว <b>${labels.length} โต๊ะ</b> · ${escapeHTML(labels.join(', '))}`;
       }
     }
+    if (el.planStatus) el.planStatus.textContent = planSummary();
   }
 
   async function loadPlanBusy() {
@@ -1412,10 +1454,12 @@
     if (!plan) return;
     if (!cfg.webhook) {
       planBusy = new Map();
+      planLocks = new Map();
       paintPlan();
       return;
     }
-    const prev = planBusy;
+    const prevBusy = planBusy;
+    const prevLocks = planLocks;
     try {
       const url = new URL(cfg.webhook, window.location.href);
       url.searchParams.set('action', 'busy');
@@ -1424,20 +1468,26 @@
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       const next = new Map();
+      const locks = new Map();
       ((data && data.busy) || []).forEach((row) => {
+        /* locked rows carry no time; booked rows carry the time */
+        const target = row && row.locked ? locks : next;
         /* a row may hold a pair ("A1 + A2") or several tables ("9, 24") */
-        String(row.table || '')
+        String((row && row.table) || '')
           .split(/[,+/&]+/)
           .forEach((part) => {
             const id = part.trim().toUpperCase();
-            if (id) next.set(id, String(row.time || ''));
+            if (!id) return;
+            target.set(id, row && row.locked ? String(row.note || '') : String(row.time || ''));
           });
       });
       planBusy = next;
+      planLocks = locks;
     } catch (err) {
       /* the map still works without occupancy — every table stays tappable */
       console.warn('[reserve] occupancy unavailable:', err);
-      planBusy = prev;
+      planBusy = prevBusy;
+      planLocks = prevLocks;
     }
     paintPlan();
   }
@@ -1463,8 +1513,14 @@
       const spot = event.target.closest('.plan__spot');
       if (!spot) return;
       const id = spot.dataset.table;
-      if (planBusyAt(planIndex.get(id) || { id })) {
-        toast(`โต๊ะ ${planTableLabel(id)} ถูกจองแล้ว — เลือกโต๊ะอื่น`);
+      const table = planIndex.get(id) || { id };
+      if (planLockAt(table) !== null) {
+        toast(`โต๊ะ ${planTableLabel(id)} ถูกปิดโดยร้าน — เลือกโต๊ะอื่น`);
+        return;
+      }
+      const busyAt = planBusyAt(table);
+      if (busyAt !== null) {
+        toast(`โต๊ะ ${planTableLabel(id)} ถูกจองแล้ว${busyAt ? ` (${busyAt} น.)` : ''} — เลือกโต๊ะอื่น`);
         return;
       }
       pickTable(id);

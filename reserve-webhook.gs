@@ -15,6 +15,8 @@
 const TAB_NAME = 'Reservations';
 const HEADERS = ['รับเมื่อ', 'รหัส', 'ชื่อ', 'เบอร์โทร', 'วันที่จอง', 'เวลา', 'จำนวนคน', 'หมายเหตุ', 'สถานะ', 'โต๊ะ'];
 const STATUSES = ['รอยืนยัน', 'ยืนยันแล้ว', 'ยกเลิก'];
+const LOCK_TAB = 'TableLocks';
+const LOCK_HEADERS = ['วันที่', 'โต๊ะ', 'หมายเหตุ', 'บันทึกเมื่อ'];
 const TZ = 'Asia/Bangkok';
 
 /** รันครั้งเดียวหลังวางโค้ด: สร้างแท็บ + หัวตาราง + รูปแบบคอลัมน์ที่จำเป็น */
@@ -49,6 +51,18 @@ function setup() {
   sheet.setColumnWidth(9, 100);
   sheet.setColumnWidth(10, 70);
 
+  /* โต๊ะที่ร้านปิดเอง (ไม่รับจอง) แยกแท็บไว้ ไม่ปนกับรายการจอง */
+  let locks = ss.getSheetByName(LOCK_TAB);
+  if (!locks) locks = ss.insertSheet(LOCK_TAB);
+  locks.getRange(1, 1, 1, LOCK_HEADERS.length).setValues([LOCK_HEADERS]).setFontWeight('bold');
+  locks.setFrozenRows(1);
+  locks.getRange('A:A').setNumberFormat('@');
+  locks.getRange('B:B').setNumberFormat('@');
+  locks.setColumnWidth(1, 95);
+  locks.setColumnWidth(2, 110);
+  locks.setColumnWidth(3, 200);
+  locks.setColumnWidth(4, 140);
+
   Logger.log('พร้อมใช้งานแล้ว: %s', ss.getUrl());
   return ss.getUrl();
 }
@@ -69,6 +83,71 @@ function sheet_() {
   return ss.getSheetByName(TAB_NAME);
 }
 
+/* แท็บล็อคโต๊ะ — create = false ใช้ตอนฝั่งลูกค้าถามสถานะ (ไม่สร้างแท็บใหม่) */
+function lockSheet_(create) {
+  const ss = spreadsheet_();
+  const existing = ss.getSheetByName(LOCK_TAB);
+  if (existing || !create) return existing || null;
+  setup();
+  return ss.getSheetByName(LOCK_TAB);
+}
+
+function dayStr_(rawDate) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(rawDate || '')) ? String(rawDate) : today_();
+}
+
+/** โต๊ะที่ถูกล็อคของวันนั้น */
+function locks_(rawDate, create) {
+  const date = dayStr_(rawDate);
+  const sheet = lockSheet_(create !== false);
+  const list = [];
+  if (!sheet) return list;
+  const last = sheet.getLastRow();
+  if (last > 1) {
+    const values = sheet.getRange(2, 1, last - 1, LOCK_HEADERS.length).getValues();
+    values.forEach(function (row) {
+      if (dateOf_(row[0]) !== date) return;
+      const table = String(row[1] || '').trim().toUpperCase();
+      if (!table) return;
+      list.push({
+        table: table,
+        note: String(row[2] || ''),
+        at:
+          row[3] instanceof Date
+            ? Utilities.formatDate(row[3], TZ, 'yyyy-MM-dd HH:mm')
+            : String(row[3] || ''),
+      });
+    });
+  }
+  return list;
+}
+
+/** เพิ่มแถวล็อค — คืน false ถ้ามีอยู่แล้ว (ล็อคซ้ำไม่สร้างแถวใหม่) */
+function setLock_(date, table, note) {
+  const existing = locks_(date, true);
+  for (let i = 0; i < existing.length; i += 1) {
+    if (existing[i].table === table) return false;
+  }
+  const sheet = lockSheet_(true);
+  sheet.appendRow([date, table, String(note || '').slice(0, 120), new Date()]);
+  return true;
+}
+
+/** ลบแถวล็อคของโต๊ะนั้น — คืน false ถ้าไม่พบ */
+function removeLock_(date, table) {
+  const sheet = lockSheet_(true);
+  const last = sheet.getLastRow();
+  if (last < 2) return false;
+  const values = sheet.getRange(2, 1, last - 1, LOCK_HEADERS.length).getValues();
+  for (let i = values.length - 1; i >= 0; i -= 1) {
+    if (dateOf_(values[i][0]) !== date) continue;
+    if (String(values[i][1] || '').trim().toUpperCase() !== table) continue;
+    sheet.deleteRow(i + 2);
+    return true;
+  }
+  return false;
+}
+
 function doPost(e) {
   try {
     const payload = parsePayload_(e);
@@ -78,6 +157,33 @@ function doPost(e) {
     if (expected) {
       const sent = (e && e.parameter && e.parameter.token) || payload.token || '';
       if (String(sent) !== String(expected)) return json_({ ok: false, error: 'unauthorized' });
+    }
+
+    /* ล็อค/ปลดล็อคโต๊ะจากหน้า today.html — ต้องผ่าน token ด้านบนแล้วเท่านั้น */
+    const act = String(payload.action || '');
+    if (act === 'lock' || act === 'unlock') {
+      const date = dayStr_(payload.date);
+      const raw = Array.isArray(payload.tables)
+        ? payload.tables
+        : String(payload.table || '').split(',');
+      const tables = raw
+        .map(function (t) {
+          return String(t == null ? '' : t).trim().toUpperCase();
+        })
+        .filter(Boolean);
+      if (!tables.length) return json_({ ok: false, error: 'missing table' });
+
+      const changed = [];
+      for (let i = 0; i < tables.length; i += 1) {
+        const table = tables[i];
+        if (table.length > 40) return json_({ ok: false, error: 'invalid table' });
+        if (!/^[A-Z]{0,3}\d{1,2}(?:\s*[+,/]\s*[A-Z]{0,3}\d{1,2})*$/i.test(table)) {
+          return json_({ ok: false, error: 'invalid table' });
+        }
+        const done = act === 'lock' ? setLock_(date, table, payload.note) : removeLock_(date, table);
+        if (done) changed.push(table);
+      }
+      return json_({ ok: true, service: 'sod-reserve', action: act, date: date, changed: changed, locks: locks_(date) });
     }
 
     const problem = validate_(payload);
@@ -108,10 +214,11 @@ function doPost(e) {
 }
 
 /**
- * GET มีสองแบบ
+ * GET มีสามแบบ
  *  - ไม่ส่ง action (หรือ action=status) → ตรวจว่าติดตั้งสำเร็จ ไม่คืนข้อมูลลูกค้า
  *  - action=list&date=YYYY-MM-DD → รายการจองของวันนั้น สำหรับหน้า today.html ของพนักงาน
  *    บังคับต้องมี SHARED_TOKEN เสมอ เพราะคืนชื่อ/เบอร์ลูกค้า
+ *  - action=locks&date=YYYY-MM-DD → โต๊ะที่ร้านล็อคไว้ (ต้องมี SHARED_TOKEN)
  */
 function doGet(e) {
   try {
@@ -126,7 +233,13 @@ function doGet(e) {
       return list_(params.date);
     }
 
-    /* ฝั่งลูกค้าใช้ตารางว่าง/ไม่ว่างบนผัง — คืนแค่เลขโต๊ะกับเวลา ไม่มีข้อมูลส่วนตัว จึงไม่ต้องใช้ token */
+    if (action === 'locks') {
+      if (!expected) return json_({ ok: false, error: 'ยังไม่ได้ตั้ง SHARED_TOKEN — ต้องตั้งก่อนใช้ระบบล็อคโต๊ะ' });
+      if (sent !== String(expected)) return json_({ ok: false, error: 'unauthorized' });
+      return json_({ ok: true, service: 'sod-reserve', date: dayStr_(params.date), locks: locks_(params.date) });
+    }
+
+    /* ฝั่งลูกค้าใช้ตารางว่าง/ไม่ว่างบนผัง — คืนแค่เลขโต๊ะกับเวลา (และโต๊ะที่ถูกล็อค) ไม่มีข้อมูลส่วนตัว จึงไม่ต้องใช้ token */
     if (action === 'busy') return busy_(params.date);
 
     if (expected && sent !== String(expected)) return json_({ ok: false, error: 'unauthorized' });
@@ -194,6 +307,11 @@ function busy_(rawDate) {
       busy.push({ table: table, time: String(row[5]).slice(0, 5) });
     });
   }
+
+  /* โต๊ะที่ร้านปิดเองก็ไม่ว่างสำหรับลูกค้า — ส่งไปพร้อมกันโดยไม่มีข้อมูลส่วนตัว */
+  locks_(date, false).forEach(function (row) {
+    busy.push({ table: row.table, time: '', locked: true });
+  });
 
   return json_({ ok: true, service: 'sod-reserve', date: date, busy: busy });
 }

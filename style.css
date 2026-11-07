@@ -2939,6 +2939,13 @@ select.field__input {
   cursor: not-allowed;
 }
 
+/* closed off by the shop (admin lock) — hatched, so it reads differently from a booking */
+.plan__spot.is-locked {
+  border-color: rgb(255 255 255 / 0.24);
+  background: repeating-linear-gradient(45deg, rgb(138 140 152 / 0.85) 0 3px, rgb(52 54 64 / 0.85) 3px 6px);
+  cursor: not-allowed;
+}
+
 .plan__legend {
   display: flex;
   flex-wrap: wrap;
@@ -2968,9 +2975,106 @@ select.field__input {
   border-color: #5c6472;
 }
 
+.plan__key.is-locked::before {
+  background: repeating-linear-gradient(45deg, #9a9caa 0 2px, #4a4c58 2px 4px);
+  border-color: #7c7e8a;
+}
+
 .plan__key.is-picked::before {
   background: #ffd166;
   border-color: #ffd166;
+}
+
+.plan__status {
+  margin: 6px 0 0;
+  font-size: 0.7rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.plan__status:empty {
+  display: none;
+}
+
+/* ── Admin: lock tables for one day (today.html) ───────────── */
+.jnl__lock {
+  margin: 22px 0 0;
+  padding: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.jnl__lock-title {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.jnl__lock-note {
+  margin: 0 0 10px;
+  font-size: 0.76rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.jnl__lock-form {
+  display: grid;
+  gap: 8px;
+}
+
+.jnl__lock-form .jnl__save {
+  width: 100%;
+}
+
+.jnl__lock-list {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jnl__lock-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.jnl__lock-table {
+  font-weight: 700;
+}
+
+.jnl__lock-why {
+  overflow: hidden;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jnl__unlock {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 5px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted-strong);
+  cursor: pointer;
+}
+
+.jnl__unlock:disabled {
+  opacity: 0.5;
+}
+
+.jnl__lock-empty {
+  margin: 10px 0 0;
+  font-size: 0.76rem;
+  color: var(--muted);
 }
 
 .plan__hint {

@@ -18,7 +18,7 @@
       if (localStorage.getItem('sod-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
     } catch (e) {}
   </script>
-  <link rel="stylesheet" href="./style.css?v=1.1.11" />
+  <link rel="stylesheet" href="./style.css?v=1.1.12" />
 </head>
 <body class="jnl-page">
   <header class="site-header">
@@ -59,6 +59,20 @@
     <ul class="jnl__list" id="jnlList"></ul>
     <p class="jnl__empty" id="jnlEmpty" hidden>วันนี้ยังไม่มีการจอง</p>
     <p class="jnl__foot" id="jnlFoot"></p>
+
+    <!-- admin: close off tables for the chosen day (shown on the guest map as ปิดโดยร้าน) -->
+    <section class="jnl__lock" id="jnlLock" hidden>
+      <h2 class="jnl__lock-title">ล็อคโต๊ะ</h2>
+      <p class="jnl__lock-note">โต๊ะที่ล็อคจะขึ้น “ปิดโดยร้าน” บนผังของลูกค้าในวันที่เลือกด้านบน และจองไม่ได้จนกว่าจะปลดล็อค</p>
+      <form class="jnl__lock-form" id="jnlLockForm">
+        <input class="field__input" id="jnlLockTable" type="text" maxlength="120" placeholder="เลขโต๊ะ เช่น 24, A1 + A2" aria-label="เลขโต๊ะที่จะล็อค" />
+        <input class="field__input" id="jnlLockWhy" type="text" maxlength="120" placeholder="เหตุผล (ไม่บังคับ) เช่น ปิดซ่อม" aria-label="เหตุผลการล็อค" />
+        <button class="jnl__save" id="jnlLockBtn" type="submit">ล็อคโต๊ะ</button>
+      </form>
+      <p class="jnl__notice" id="jnlLockMsg" role="status" hidden></p>
+      <ul class="jnl__lock-list" id="jnlLockList"></ul>
+      <p class="jnl__lock-empty" id="jnlLockEmpty" hidden>ยังไม่มีโต๊ะที่ล็อคในวันนี้</p>
+    </section>
   </main>
 
   <script>
@@ -79,6 +93,14 @@
     list: document.getElementById('jnlList'),
     empty: document.getElementById('jnlEmpty'),
     foot: document.getElementById('jnlFoot'),
+    lock: document.getElementById('jnlLock'),
+    lockForm: document.getElementById('jnlLockForm'),
+    lockTable: document.getElementById('jnlLockTable'),
+    lockWhy: document.getElementById('jnlLockWhy'),
+    lockBtn: document.getElementById('jnlLockBtn'),
+    lockMsg: document.getElementById('jnlLockMsg'),
+    lockList: document.getElementById('jnlLockList'),
+    lockEmpty: document.getElementById('jnlLockEmpty'),
   };
 
   const STATUS_CLASS = { 'รอยืนยัน': 'is-wait', 'ยืนยันแล้ว': 'is-ok', 'ยกเลิก': 'is-off' };
@@ -138,9 +160,9 @@
     } catch (_) {}
   }
 
-  function buildURL(date) {
+  function buildURL(date, action) {
     const url = new URL(webhook, window.location.href);
-    url.searchParams.set('action', 'list');
+    url.searchParams.set('action', action || 'list');
     url.searchParams.set('date', date);
     const token = readToken();
     if (token) url.searchParams.set('token', token);
@@ -195,6 +217,71 @@
       .join('');
   }
 
+  /* ── table locks: the shop can close off a table for a day ── */
+  function renderLocks(list) {
+    el.lockList.innerHTML = list
+      .map(function (row) {
+        return (
+          '<li class="jnl__lock-row">' +
+            '<span class="jnl__lock-table">โต๊ะ ' + escapeHTML(row.table) + '</span>' +
+            (row.note ? '<span class="jnl__lock-why">' + escapeHTML(row.note) + '</span>' : '') +
+            '<button class="jnl__unlock" type="button" data-table="' + escapeHTML(row.table) + '">ปลดล็อค</button>' +
+          '</li>'
+        );
+      })
+      .join('');
+    el.lockEmpty.hidden = list.length > 0;
+    Array.prototype.forEach.call(el.lockList.querySelectorAll('.jnl__unlock'), function (btn) {
+      btn.addEventListener('click', function () {
+        unlock(btn.dataset.table, btn);
+      });
+    });
+  }
+
+  async function loadLocks() {
+    if (!webhook || !readToken()) return;
+    el.lock.hidden = false;
+    try {
+      const res = await fetch(buildURL(el.date.value || isoDate(new Date()), 'locks'), { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (!data || data.ok === false) throw new Error((data && data.error) || 'โหลดไม่สำเร็จ');
+      renderLocks(data.locks || []);
+    } catch (err) {
+      console.warn('[today] locks failed:', err);
+      el.lockMsg.hidden = false;
+      el.lockMsg.textContent = 'โหลดรายการล็อคไม่สำเร็จ (' + err.message + ')';
+    }
+  }
+
+  /* POST as text/plain so Apps Script answers without a CORS preflight */
+  async function lockAction(action, payload) {
+    const res = await fetch(webhook, {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(Object.assign({ token: readToken(), action: action }, payload)),
+    });
+    const data = await res.json();
+    if (!data || data.ok === false) throw new Error((data && data.error) || 'HTTP ' + res.status);
+    return data;
+  }
+
+  async function unlock(table, btn) {
+    btn.disabled = true;
+    el.lockMsg.hidden = true;
+    try {
+      const data = await lockAction('unlock', { date: el.date.value || isoDate(new Date()), tables: [table] });
+      renderLocks(data.locks || []);
+      el.lockMsg.hidden = false;
+      el.lockMsg.textContent = 'ปลดล็อคโต๊ะ ' + table + ' แล้ว';
+    } catch (err) {
+      btn.disabled = false;
+      el.lockMsg.hidden = false;
+      el.lockMsg.textContent = 'ปลดล็อคไม่สำเร็จ — ' + err.message;
+    }
+  }
+
   function renderStats(data) {
     const counts = { 'รอยืนยัน': 0, 'ยืนยันแล้ว': 0, 'ยกเลิก': 0 };
     (data.rows || []).forEach(function (row) {
@@ -237,6 +324,7 @@
       el.empty.hidden = (data.rows || []).length > 0;
       renderRows(data.rows || []);
       renderStats(data);
+      loadLocks();
       el.foot.textContent = 'อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น. · รีเฟรชเองทุก 1 นาที';
     } catch (err) {
       console.error('[today] load failed:', err);
@@ -287,6 +375,31 @@
     });
     el.refresh.addEventListener('click', load);
     el.date.addEventListener('change', load);
+    el.lockForm.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      const date = el.date.value || isoDate(new Date());
+      const tables = el.lockTable.value.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+      if (!tables.length) {
+        el.lockTable.focus();
+        return;
+      }
+      el.lockBtn.disabled = true;
+      el.lockMsg.hidden = true;
+      try {
+        const data = await lockAction('lock', { date: date, tables: tables, note: el.lockWhy.value.trim() });
+        el.lockTable.value = '';
+        el.lockWhy.value = '';
+        renderLocks(data.locks || []);
+        el.lockMsg.hidden = false;
+        el.lockMsg.textContent = 'ล็อคแล้ว ' + (data.changed || []).length + ' โต๊ะ' +
+          ((data.changed || []).length ? ': ' + data.changed.join(', ') : ' (มีอยู่แล้ว)');
+      } catch (err) {
+        el.lockMsg.hidden = false;
+        el.lockMsg.textContent = 'ล็อคไม่สำเร็จ — ' + err.message;
+      } finally {
+        el.lockBtn.disabled = false;
+      }
+    });
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden) load();
     });
