@@ -97,7 +97,7 @@ function doPost(e) {
       Number(payload.party) || 1,
       String(payload.note || '').slice(0, 200),
       STATUSES[0],
-      String(payload.table || '').toUpperCase().slice(0, 8),
+      String(payload.table || '').toUpperCase().slice(0, 40),
     ]);
 
     return json_({ ok: true, code: code, row: sheet.getLastRow() });
@@ -243,7 +243,10 @@ function validate_(p) {
   if (!/^\d{2}:\d{2}$/.test(String(p.time || ''))) return 'invalid time';
   const party = Number(p.party);
   if (!party || party < 1 || party > 50) return 'invalid party size';
-  if (p.table && !/^[A-Z]{0,3}\d{1,2}$/i.test(String(p.table).trim())) return 'invalid table';
+  /* one table (24, A10, VIP2), a pushed-together pair (A1 + A2) or several (9, 24) */
+  const table = String(p.table || '').trim();
+  if (table.length > 40) return 'invalid table';
+  if (table && !/^[A-Z]{0,3}\d{1,2}(?:\s*[+,/]\s*[A-Z]{0,3}\d{1,2})*$/i.test(table)) return 'invalid table';
   return '';
 }
 

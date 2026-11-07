@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.9';
+  const ASSET_VERSION = '1.0.10';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1262,9 +1262,10 @@
 
   let reserveCurrent = null;
   let reserveReturnFocus = null;
-  let pickedTable = null;
+  let pickedTables = [];
   let planBusy = new Map();
   let planBuilt = false;
+  let planIndex = new Map();
 
   function reserveConfig() {
     const raw = (state.data && state.data.shop && state.data.shop.reserve) || {};
@@ -1346,13 +1347,34 @@
     return hit ? hit.label || hit.id : id;
   }
 
+  /* one hotspot may cover a single table or a pair pushed together (A1+A2) */
+  function planTableIds(table) {
+    if (table && Array.isArray(table.ids) && table.ids.length) return table.ids.map(String);
+    return [String((table && table.id) || '')];
+  }
+
+  function planBusyAt(table) {
+    const ids = planTableIds(table);
+    for (let i = 0; i < ids.length; i += 1) {
+      const hit = planBusy.get(ids[i].trim().toUpperCase());
+      if (hit !== undefined) return hit;
+    }
+    return null;
+  }
+
+  function pickedLabels() {
+    return pickedTables.map((id) => planTableLabel(id));
+  }
+
   function buildPlan() {
     const plan = planConfig();
     if (!plan || planBuilt || !el.planCanvas) return;
+    planIndex = new Map();
     const spots = plan.tables
       .map((t) => {
         const w = Number(t.w) || 5.2;
         const h = Number(t.h) || 5.2;
+        planIndex.set(String(t.id), t);
         return `<button class="plan__spot" type="button" data-table="${escapeAttr(t.id)}" aria-label="โต๊ะ ${escapeAttr(t.label || t.id)}" aria-pressed="false" style="left:${Number(t.x)}%;top:${Number(t.y)}%;width:${w}%;height:${h}%"></button>`;
       })
       .join('');
@@ -1364,16 +1386,23 @@
     if (!el.planCanvas) return;
     el.planCanvas.querySelectorAll('.plan__spot').forEach((spot) => {
       const id = spot.dataset.table;
-      const busyAt = planBusy.get(id);
-      spot.classList.toggle('is-picked', id === pickedTable);
+      const busyAt = planBusyAt(planIndex.get(id) || { id });
+      const picked = pickedTables.includes(id);
+      spot.classList.toggle('is-picked', picked);
       spot.classList.toggle('is-busy', Boolean(busyAt));
-      spot.setAttribute('aria-pressed', id === pickedTable ? 'true' : 'false');
+      spot.setAttribute('aria-pressed', picked ? 'true' : 'false');
       if (busyAt) spot.title = `ถูกจอง ${busyAt} น.`;
+      else spot.removeAttribute('title');
     });
     if (el.planPick) {
-      el.planPick.innerHTML = pickedTable
-        ? `เลือกแล้ว <b>โต๊ะ ${escapeHTML(planTableLabel(pickedTable))}</b> · กรอกข้อมูลด้านล่าง`
-        : 'แตะโต๊ะบนผังเพื่อเลือก';
+      const labels = pickedLabels();
+      if (!labels.length) {
+        el.planPick.innerHTML = 'แตะโต๊ะบนผังเพื่อเลือก · เลือกได้หลายโต๊ะ';
+      } else if (labels.length === 1) {
+        el.planPick.innerHTML = `เลือกแล้ว <b>โต๊ะ ${escapeHTML(labels[0])}</b> · แตะเพิ่มได้อีก หรือกรอกข้อมูลด้านล่าง`;
+      } else {
+        el.planPick.innerHTML = `เลือกแล้ว <b>${labels.length} โต๊ะ</b> · ${escapeHTML(labels.join(', '))}`;
+      }
     }
   }
 
@@ -1396,8 +1425,13 @@
       const data = await res.json();
       const next = new Map();
       ((data && data.busy) || []).forEach((row) => {
-        const id = String(row.table || '').toUpperCase();
-        if (id) next.set(id, String(row.time || ''));
+        /* a row may hold a pair ("A1 + A2") or several tables ("9, 24") */
+        String(row.table || '')
+          .split(/[,+/&]+/)
+          .forEach((part) => {
+            const id = part.trim().toUpperCase();
+            if (id) next.set(id, String(row.time || ''));
+          });
       });
       planBusy = next;
     } catch (err) {
@@ -1409,10 +1443,12 @@
   }
 
   function pickTable(id) {
-    const first = !pickedTable;
-    pickedTable = pickedTable === id ? null : id;
+    const first = !pickedTables.length;
+    pickedTables = pickedTables.includes(id)
+      ? pickedTables.filter((t) => t !== id)
+      : pickedTables.concat(id);
     paintPlan();
-    if (first && pickedTable && el.reserveForm) {
+    if (first && pickedTables.length && el.reserveForm) {
       const panel = el.reserveSheet.querySelector('.sheet__panel');
       if (panel) {
         const top = Math.max(0, el.reserveForm.offsetTop - 18);
@@ -1427,7 +1463,7 @@
       const spot = event.target.closest('.plan__spot');
       if (!spot) return;
       const id = spot.dataset.table;
-      if (planBusy.has(id)) {
+      if (planBusyAt(planIndex.get(id) || { id })) {
         toast(`โต๊ะ ${planTableLabel(id)} ถูกจองแล้ว — เลือกโต๊ะอื่น`);
         return;
       }
@@ -1439,7 +1475,7 @@
       el.planFit.setAttribute('aria-pressed', fit ? 'true' : 'false');
     });
     el.reserveDate?.addEventListener('change', () => {
-      pickedTable = null;
+      pickedTables = [];
       paintPlan();
       loadPlanBusy();
     });
@@ -1508,7 +1544,7 @@
     const cfg = reserveConfig();
     if (cfg.enabled === false) return;
     reserveReturnFocus = document.activeElement;
-    pickedTable = null;
+    pickedTables = [];
     syncReserveUI();
     paintPlan();
     loadPlanBusy();
@@ -1557,7 +1593,7 @@
     const note = el.reserveNote.value.trim();
     const maxParty = Math.max(1, Number(cfg.max_party) || 20);
 
-    if (planConfig() && !pickedTable) return { error: 'แตะเลือกโต๊ะบนผังก่อนยืนยันการจอง' };
+    if (planConfig() && !pickedTables.length) return { error: 'แตะเลือกโต๊ะบนผังก่อนยืนยันการจอง' };
     if (name.length < 2) return { error: 'กรุณากรอกชื่อผู้จอง' };
     if (phone.length < 9 || phone.length > 10) return { error: 'กรุณากรอกเบอร์โทรให้ครบ (9–10 หลัก)' };
     if (!date) return { error: 'กรุณาเลือกวันที่ต้องการจอง' };
@@ -1581,7 +1617,7 @@
         date,
         time,
         party,
-        table: pickedTable ? planTableLabel(pickedTable) : '',
+        table: pickedTables.length ? pickedLabels().join(', ') : '',
         note,
         created_at: new Date().toISOString(),
       },
@@ -1699,7 +1735,7 @@
       el.reserveNote.value = '';
       el.reserveSubmit.disabled = false;
       el.reserveSubmit.textContent = 'ยืนยันการจอง';
-      pickedTable = null;
+      pickedTables = [];
       paintPlan();
       loadPlanBusy();
       el.reserveName.focus();
