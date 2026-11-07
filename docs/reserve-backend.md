@@ -4,6 +4,9 @@
 `data/menu.json` → `shop.reserve.webhook` ตัวรับที่แนะนำคือ **Google Apps Script Web App** ที่ต่อท้ายแถวลง Google Sheet
 (ฟรี ไม่ต้องมีเซิร์ฟเวอร์ ไม่ต้องมีบัตรเครดิต) ใช้โค้ดที่ [`reserve-webhook.gs`](../reserve-webhook.gs)
 
+> **อยากได้ตารางค่าที่ต้องใส่ทั้งหมดพร้อมตัวอย่างจริง** → [`setup-values.md`](setup-values.md)
+> (Script Properties 4 ตัว, ค่าใน `data/menu.json`, ค่าฝั่ง LINE, คำสั่ง curl ทดสอบ, เช็กลิสต์ก่อนเปิดใช้)
+
 ```
 เว็บเมนู (มือถือลูกค้า)
    │  POST text/plain;charset=utf-8  { code, name, phone, date, time, party, note }

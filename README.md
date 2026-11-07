@@ -56,6 +56,7 @@ python3 -m http.server 8123
 - ถ้าตั้ง `webhook` → ส่ง JSON เข้าระบบร้านทันที (POST `text/plain` เพื่อเลี่ยง CORS preflight); ถ้าไม่ตั้ง → บันทึกในเครื่องลูกค้า + ให้ส่ง LINE/โทรเอง
 - ตั้งค่าผังโต๊ะที่ `shop.reserve.plan` (รูป + พิกัดโต๊ะเป็น % ของรูป) — ผู้ใช้กดโต๊ะบนผังเพื่อจอง, โต๊ะที่ถูกจองแล้วจะถูกระบายจาก `?action=busy` ของ Apps Script
 - ตัวรับมาตรฐานคือ **Google Sheet + Apps Script** ([`reserve-webhook.gs`](reserve-webhook.gs)) — วิธีติดตั้งทีละขั้นอยู่ที่ [`docs/reserve-backend.md`](docs/reserve-backend.md)
+- ค่าที่ต้องใส่ทั้งหมด (Script Properties, `shop.reserve`, LINE, เช็กลิสต์) อยู่ที่ [`docs/setup-values.md`](docs/setup-values.md)
 - พนักงานดูรายการจองของวันที่ **`today.html`** (อ่านอย่างเดียว, ต้องกรอก `SHARED_TOKEN` ครั้งแรก, รีเฟรชเองทุก 60 วิ) — รายละเอียดอยู่ที่คู่มือข้อ 6
 
 ## เปิดเว็บจริงบน GitHub Pages
