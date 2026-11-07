@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>รายการจองวันนี้ — SOD! signature</title>
+  <meta name="description" content="หน้ารายการจองโต๊ะของวัน สำหรับพนักงานร้าน SOD! signature (อ่านจาก Google Sheet ผ่าน Apps Script)" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#f7f6f3" />
+  <meta name="color-scheme" content="light" />
+  <link rel="icon" type="image/png" href="./images/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;900&display=swap" media="print" onload="this.media='all'" />
+  <script>
+    /* apply the saved theme before first paint, same key as the menu page */
+    try {
+      if (localStorage.getItem('sod-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
+    } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="./style.css?v=1.1.8" />
+</head>
+<body class="jnl-page">
+  <header class="site-header">
+    <div class="wrap site-header__inner">
+      <div class="brand">
+        <img class="brand__logo" src="./images/logo.jpg" alt="" width="44" height="44" />
+        <span class="brand__text">
+          <strong class="brand__name" id="jnlShop">SOD! signature</strong>
+          <span class="brand__sub">รายการจอง · ฝั่งร้าน</span>
+        </span>
+      </div>
+      <a class="jnl__back" href="./index.html">หน้าเมนู</a>
+    </div>
+  </header>
+
+  <main class="wrap jnl">
+    <h1 class="jnl__title">รายการจองวันนี้</h1>
+
+    <!-- no webhook yet / no token yet -->
+    <p class="jnl__notice" id="jnlNotice" role="status" hidden></p>
+
+    <form class="jnl__setup" id="jnlSetup" hidden>
+      <label class="field__label" for="jnlToken">รหัสผ่านร้าน (SHARED_TOKEN)</label>
+      <input class="field__input" id="jnlToken" type="password" autocomplete="current-password" placeholder="วางรหัสที่ตั้งไว้ใน Apps Script" />
+      <button class="jnl__save" id="jnlSave" type="submit">บันทึกและโหลดรายการ</button>
+      <p class="jnl__setup-hint">
+        เก็บไว้ในเครื่องนี้เท่านั้น (localStorage คีย์ <code>sod-admin-token</code>) —
+        หรือเปิดหน้านี้ด้วยลิงก์ที่มี <code>?token=…</code> ต่อท้ายเพื่อบันทึกอัตโนมัติ
+      </p>
+    </form>
+
+    <div class="jnl__bar">
+      <input class="field__input jnl__date" id="jnlDate" type="date" aria-label="เลือกวันที่" />
+      <button class="jnl__refresh" id="jnlRefresh" type="button">รีเฟรช</button>
+    </div>
+
+    <p class="jnl__stats" id="jnlStats" role="status"></p>
+    <ul class="jnl__list" id="jnlList"></ul>
+    <p class="jnl__empty" id="jnlEmpty" hidden>วันนี้ยังไม่มีการจอง</p>
+    <p class="jnl__foot" id="jnlFoot"></p>
+  </main>
+
+  <script>
+(function () {
+  'use strict';
+
+  const TOKEN_KEY = 'sod-admin-token';
+  const AUTO_REFRESH_MS = 60000;
+
+  const el = {
+    shop: document.getElementById('jnlShop'),
+    notice: document.getElementById('jnlNotice'),
+    setup: document.getElementById('jnlSetup'),
+    token: document.getElementById('jnlToken'),
+    date: document.getElementById('jnlDate'),
+    refresh: document.getElementById('jnlRefresh'),
+    stats: document.getElementById('jnlStats'),
+    list: document.getElementById('jnlList'),
+    empty: document.getElementById('jnlEmpty'),
+    foot: document.getElementById('jnlFoot'),
+  };
+
+  const STATUS_CLASS = { 'รอยืนยัน': 'is-wait', 'ยืนยันแล้ว': 'is-ok', 'ยกเลิก': 'is-off' };
+  const STATUS_ORDER = { 'รอยืนยัน': 0, 'ยืนยันแล้ว': 1, 'ยกเลิก': 2 };
+
+  let webhook = '';
+  let loading = false;
+
+  function escapeHTML(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+    });
+  }
+
+  function isoDate(d) {
+    const pad = function (n) { return String(n).padStart(2, '0'); };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+
+  function thaiDate(iso) {
+    const parts = String(iso).split('-');
+    if (parts.length !== 3) return iso;
+    const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  function prettyPhone(phone) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    if (digits.length === 10) return digits.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+    return String(phone || '');
+  }
+
+  /* the token may arrive as ?token= once (staff bookmark) — store it and strip it from the URL */
+  function readToken() {
+    let stored = '';
+    try {
+      stored = localStorage.getItem(TOKEN_KEY) || '';
+    } catch (_) {}
+    try {
+      const url = new URL(window.location.href);
+      const fromURL = url.searchParams.get('token');
+      if (!fromURL) return stored;
+      localStorage.setItem(TOKEN_KEY, fromURL);
+      url.searchParams.delete('token');
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+      return fromURL;
+    } catch (_) {
+      return stored;
+    }
+  }
+
+  function saveToken(value) {
+    try {
+      if (value) localStorage.setItem(TOKEN_KEY, value);
+      else localStorage.removeItem(TOKEN_KEY);
+    } catch (_) {}
+  }
+
+  function buildURL(date) {
+    const url = new URL(webhook, window.location.href);
+    url.searchParams.set('action', 'list');
+    url.searchParams.set('date', date);
+    const token = readToken();
+    if (token) url.searchParams.set('token', token);
+    return url.toString();
+  }
+
+  function showSetup(message) {
+    el.setup.hidden = false;
+    if (message) {
+      el.notice.hidden = false;
+      el.notice.textContent = message;
+    }
+    if (!el.token.value) el.token.value = readToken();
+    el.list.innerHTML = '';
+    el.empty.hidden = true;
+    el.stats.textContent = '';
+  }
+
+  function statusBadge(status) {
+    const label = STATUS_ORDER[status] == null ? 'รอยืนยัน' : status;
+    return '<span class="jnl__badge ' + (STATUS_CLASS[label] || 'is-wait') + '">' + escapeHTML(label) + '</span>';
+  }
+
+  function renderRows(rows) {
+    el.list.innerHTML = rows
+      .map(function (row) {
+        const note = row.note
+          ? '<p class="jnl__note">' + escapeHTML(row.note) + '</p>'
+          : '';
+        const phone = row.phone
+          ? '<a class="jnl__phone" href="tel:' + escapeHTML(String(row.phone).replace(/[^\d+]/g, '')) + '">' +
+            escapeHTML(prettyPhone(row.phone)) + '</a>'
+          : '';
+        return (
+          '<li class="jnl__row">' +
+            '<p class="jnl__time">' + escapeHTML(row.time || '--:--') + '<small>น.</small></p>' +
+            '<div class="jnl__body">' +
+              '<p class="jnl__name">' + escapeHTML(row.name || '—') +
+                '<span class="jnl__party">' + escapeHTML(String(row.party || 1)) + ' คน</span>' +
+              '</p>' +
+              '<p class="jnl__meta">' + phone +
+                (phone ? ' · ' : '') +
+                '<span class="jnl__code">' + escapeHTML(row.code || '') + '</span>' +
+              '</p>' +
+              note +
+            '</div>' +
+            statusBadge(row.status) +
+          '</li>'
+        );
+      })
+      .join('');
+  }
+
+  function renderStats(data) {
+    const counts = { 'รอยืนยัน': 0, 'ยืนยันแล้ว': 0, 'ยกเลิก': 0 };
+    (data.rows || []).forEach(function (row) {
+      const key = STATUS_ORDER[row.status] == null ? 'รอยืนยัน' : row.status;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    const parts = [data.count + ' รายการ · รวม ' + data.people + ' คน'];
+    Object.keys(counts).forEach(function (key) {
+      if (counts[key]) parts.push(key + ' ' + counts[key]);
+    });
+    el.stats.textContent = thaiDate(data.date) + ' — ' + parts.join(' · ');
+  }
+
+  async function load() {
+    if (!webhook || loading) return;
+    const date = el.date.value || isoDate(new Date());
+    loading = true;
+    el.refresh.disabled = true;
+    el.stats.textContent = 'กำลังโหลด…';
+    el.notice.hidden = true;
+    try {
+      /* plain GET with no custom headers → no CORS preflight, which an
+         Apps Script web app cannot answer */
+      const res = await fetch(buildURL(date), { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (!data || data.ok === false) {
+        const err = (data && data.error) || 'โหลดไม่สำเร็จ';
+        if (err === 'unauthorized' || /SHARED_TOKEN/.test(err)) {
+          el.notice.hidden = false;
+          showSetup(err === 'unauthorized'
+            ? 'รหัสผ่านร้านไม่ถูกต้อง — ตรวจ SHARED_TOKEN ใน Apps Script แล้วกรอกใหม่'
+            : err);
+          return;
+        }
+        throw new Error(err);
+      }
+      el.setup.hidden = true;
+      el.notice.hidden = true;
+      el.empty.hidden = (data.rows || []).length > 0;
+      renderRows(data.rows || []);
+      renderStats(data);
+      el.foot.textContent = 'อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น. · รีเฟรชเองทุก 1 นาที';
+    } catch (err) {
+      console.error('[today] load failed:', err);
+      el.list.innerHTML = '';
+      el.empty.hidden = true;
+      el.stats.textContent = '';
+      el.notice.hidden = false;
+      el.notice.textContent = 'โหลดรายการไม่สำเร็จ (' + err.message + ') — ตรวจว่า deploy เวอร์ชันล่าสุดแล้ว และ URL /exec ยังใช้ได้';
+      el.foot.textContent = '';
+    } finally {
+      loading = false;
+      el.refresh.disabled = false;
+    }
+  }
+
+  async function boot() {
+    el.date.value = isoDate(new Date());
+    try {
+      const res = await fetch('./data/menu.json?v=' + Date.now(), { cache: 'no-store' });
+      const data = await res.json();
+      const shop = (data && data.shop) || {};
+      const reserve = shop.reserve || {};
+      webhook = String(reserve.webhook || '');
+      if (shop.name) {
+        el.shop.textContent = shop.name;
+        document.title = 'รายการจองวันนี้ — ' + shop.name;
+      }
+    } catch (err) {
+      console.error('[today] menu.json failed:', err);
+    }
+
+    if (!webhook) {
+      el.notice.hidden = false;
+      el.notice.innerHTML =
+        'ยังไม่ได้ตั้ง <code>shop.reserve.webhook</code> ใน <code>data/menu.json</code> — ' +
+        'ทำตามคู่มือ <code>docs/reserve-backend.md</code> ข้อ 1–4 ก่อน';
+      el.setup.hidden = true;
+      return;
+    }
+
+    el.setup.addEventListener('submit', function (event) {
+      event.preventDefault();
+      const value = el.token.value.trim();
+      if (!value) return;
+      saveToken(value);
+      el.setup.hidden = true;
+      load();
+    });
+    el.refresh.addEventListener('click', load);
+    el.date.addEventListener('change', load);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) load();
+    });
+    window.setInterval(function () {
+      if (!document.hidden && el.setup.hidden) load();
+    }, AUTO_REFRESH_MS);
+
+    if (!readToken()) showSetup('กรอกรหัสผ่านร้านเพื่อดูรายการจอง (ต้องตรงกับ SHARED_TOKEN ใน Apps Script)');
+    else load();
+  }
+
+  boot();
+})();
+  </script>
+</body>
+</html>

@@ -61,6 +61,13 @@ curl -s -X POST "https://script.google.com/macros/s/XXXX/exec?token=sod-9f2c7b41
 
 ตรวจสถานะแบบไม่คืนข้อมูลลูกค้า: เปิด URL เดียวกันด้วย GET → `{"ok":true,"service":"sod-reserve","bookings":N,...}`
 
+ทดสอบรายการของวันนั้น (ใช้ในหน้ารายการจองของพนักงาน ข้อ 6):
+
+```bash
+curl -s "https://script.google.com/macros/s/XXXX/exec?action=list&date=2026-11-08&token=sod-9f2c7b41e8"
+# → {"ok":true,"date":"2026-11-08","count":1,"people":4,"rows":[{"time":"19:30",...}]}
+```
+
 ## 4. เปิดใช้บนเว็บ
 
 แก้ `data/menu.json`
@@ -102,7 +109,31 @@ curl -s -X POST "https://script.google.com/macros/s/XXXX/exec?token=sod-9f2c7b41
 > แก้โค้ดแล้วต้อง **Deploy → Manage deployments → แก้ไข (ดินสอ) → Version: New version → Deploy**
 > ไม่งั้น URL เดิมยังรันโค้ดเก่า
 
-## 6. ความปลอดภัยและความเป็นส่วนตัว
+## 6. หน้ารายการจองวันนี้ (`today.html`)
+
+พนักงานเปิด **`https://gitnonta.github.io/sod-menu/today.html`** เพื่อดูรายการจองของวันนั้นบนมือถือ
+โดยไม่ต้องเปิด Google Sheet — หน้าเว็บยังเป็น static, อ่านข้อมูลผ่าน Apps Script และต้องมี token เท่านั้น
+
+1. ถ้าเพิ่งวางโค้ดที่เพิ่ม `list_` ให้ **Deploy → Manage deployments → New version → Deploy** ก่อน
+2. เปิด `today.html` ครั้งแรก → กรอกรหัส `SHARED_TOKEN` (เก็บใน `localStorage` ของเครื่องนั้น)
+   หรือเปิดด้วยลิงก์ `today.html?token=<รหัส>` ครั้งเดียว ระบบจะจำแล้วลบ token ออกจาก URL ให้
+3. เลือกวันที่ (ค่าเริ่มต้น = วันนี้) · กด **รีเฟรช** หรือปล่อยให้รีเฟรชเองทุก 60 วินาที
+
+หน้าเว็บเรียก endpoint เดิมที่ต่อท้ายด้วย
+
+```
+?action=list&date=YYYY-MM-DD&token=<SHARED_TOKEN>
+→ { "ok": true, "date": "2026-11-08", "count": 1, "people": 4,
+    "rows": [ { "time": "19:30", "name": "นนท์", "phone": "0812345678", "party": 4,
+                "note": "", "status": "รอยืนยัน", "code": "SOD-XXXXX", "created_at": "2026-11-07 04:31" } ] }
+```
+
+- `action=list` **บังคับ** token เสมอ (ถ้ายังไม่ตั้ง `SHARED_TOKEN` จะตอบ error) เพราะคืนชื่อ/เบอร์ลูกค้า
+- ไม่ส่ง `date` = วันนี้ตามเวลาไทย (`Asia/Bangkok`); รายการเรียงตามเวลา
+- หน้านี้เป็น **อ่านอย่างเดียว** — ยืนยัน/ยกเลิกยังทำในชีต (แก้คอลัมน์ **สถานะ**) แล้วหน้ารายการจะอัปเดตตามรอบรีเฟรช
+- อย่าแชร์ลิงก์ที่มี token และไม่ต้องลิงก์หน้านี้จากหน้าเมนู (มี `noindex` กันอยู่แล้ว)
+
+## 7. ความปลอดภัยและความเป็นส่วนตัว
 
 - URL `/exec` เป็น public โดยธรรมชาติ ใครรู้ก็ยิงได้ → ตั้ง `SHARED_TOKEN` และ **อย่าโพสต์ URL นี้ที่อื่น**
 - `doPost` กรองข้อมูลซ้ำด้วยรหัสการจอง (`code`) และตรวจรูปแบบเบอร์/วันที่/เวลา/จำนวนคนก่อนบันทึก
@@ -112,7 +143,7 @@ curl -s -X POST "https://script.google.com/macros/s/XXXX/exec?token=sod-9f2c7b41
 - ตั้งสิทธิ์ไฟล์ชีตเป็น "Restricted" ให้เฉพาะทีมร้าน แล้วแชร์เฉพาะคนที่ต้องใช้
 - สำรองข้อมูล: **File → Make a copy** เป็นรายเดือน หรือตาราง `=IMPORTRANGE` ไปยังชีตสำรอง
 
-## 7. ถ้าไม่ใช้ Google Sheet
+## 8. ถ้าไม่ใช้ Google Sheet
 
 | ทางเลือก | เหมาะกับ | หมายเหตุ |
 | --- | --- | --- |
@@ -125,7 +156,7 @@ curl -s -X POST "https://script.google.com/macros/s/XXXX/exec?token=sod-9f2c7b41
 และตอบกลับ `{ "ok": true }` — ถ้าตอบ `{"ok": false}` หรือ HTTP ไม่ใช่ 2xx เว็บจะขึ้นข้อความ
 "ส่งอัตโนมัติไม่สำเร็จ — กรุณาส่งข้อความทาง LINE หรือโทรหาร้าน" และยังมีรหัสจองให้ลูกค้าใช้
 
-## 8. แก้ปัญหา
+## 9. แก้ปัญหา
 
 | อาการ | สาเหตุที่พบบ่อย | วิธีแก้ |
 | --- | --- | --- |
@@ -135,3 +166,5 @@ curl -s -X POST "https://script.google.com/macros/s/XXXX/exec?token=sod-9f2c7b41
 | เบอร์โทรขึ้นเป็นตัวเลขไม่มี 0 | คอลัมน์ D ไม่ได้ตั้งรูปแบบข้อความ | รัน `setup()` (ตั้ง `D:D` เป็น `@`) |
 | แก้โค้ดแล้วพฤติกรรมไม่เปลี่ยน | ยังใช้ deployment version เก่า | Manage deployments → New version → Deploy |
 | ข้อความ error ใน Apps Script | ยังไม่ได้อนุญาตสิทธิ์/ยังไม่ตั้ง `SHEET_ID` | ดู Executions ในหน้า Apps Script |
+| `today.html` ขึ้น "รหัสผ่านร้านไม่ถูกต้อง" | token ต่างจาก `SHARED_TOKEN` หรือยังไม่ได้ตั้ง | ล้างค่าใน localStorage (`sod-admin-token`) แล้วกรอกใหม่/ตรวจ Script Properties |
+| `today.html` ขึ้น "โหลดรายการไม่สำเร็จ" | ยัง deploy เวอร์ชันเก่าที่ไม่มี `action=list` / URL ผิด | Manage deployments → New version → Deploy แล้วรีเฟรช |

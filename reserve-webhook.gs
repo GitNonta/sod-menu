@@ -15,6 +15,7 @@
 const TAB_NAME = 'Reservations';
 const HEADERS = ['รับเมื่อ', 'รหัส', 'ชื่อ', 'เบอร์โทร', 'วันที่จอง', 'เวลา', 'จำนวนคน', 'หมายเหตุ', 'สถานะ'];
 const STATUSES = ['รอยืนยัน', 'ยืนยันแล้ว', 'ยกเลิก'];
+const TZ = 'Asia/Bangkok';
 
 /** รันครั้งเดียวหลังวางโค้ด: สร้างแท็บ + หัวตาราง + รูปแบบคอลัมน์ที่จำเป็น */
 function setup() {
@@ -103,19 +104,90 @@ function doPost(e) {
   }
 }
 
-/** ใช้ตรวจว่าติดตั้งสำเร็จ (ไม่คืนข้อมูลลูกค้า) */
+/**
+ * GET มีสองแบบ
+ *  - ไม่ส่ง action (หรือ action=status) → ตรวจว่าติดตั้งสำเร็จ ไม่คืนข้อมูลลูกค้า
+ *  - action=list&date=YYYY-MM-DD → รายการจองของวันนั้น สำหรับหน้า today.html ของพนักงาน
+ *    บังคับต้องมี SHARED_TOKEN เสมอ เพราะคืนชื่อ/เบอร์ลูกค้า
+ */
 function doGet(e) {
   try {
+    const params = (e && e.parameter) || {};
     const expected = PropertiesService.getScriptProperties().getProperty('SHARED_TOKEN');
-    if (expected && String((e && e.parameter && e.parameter.token) || '') !== String(expected)) {
-      return json_({ ok: false, error: 'unauthorized' });
+    const sent = String(params.token || '');
+    const action = String(params.action || 'status');
+
+    if (action === 'list') {
+      if (!expected) return json_({ ok: false, error: 'ยังไม่ได้ตั้ง SHARED_TOKEN — ต้องตั้งก่อนใช้หน้ารายการจอง' });
+      if (sent !== String(expected)) return json_({ ok: false, error: 'unauthorized' });
+      return list_(params.date);
     }
+
+    if (expected && sent !== String(expected)) return json_({ ok: false, error: 'unauthorized' });
     const sheet = sheet_();
     const rows = Math.max(0, sheet.getLastRow() - 1);
     return json_({ ok: true, service: 'sod-reserve', bookings: rows, tab: TAB_NAME });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
   }
+}
+
+/** อ่านแถวของวันที่กำหนด (ไม่ส่ง date = วันนี้ตามเวลาไทย) แล้วคืนเป็น JSON เรียงตามเวลา */
+function list_(rawDate) {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(String(rawDate || '')) ? String(rawDate) : today_();
+  const sheet = sheet_();
+  const last = sheet.getLastRow();
+  const rows = [];
+
+  if (last > 1) {
+    const values = sheet.getRange(2, 1, last - 1, HEADERS.length).getValues();
+    values.forEach(function (row) {
+      if (dateOf_(row[4]) !== date) return;
+      rows.push({
+        code: String(row[1]),
+        name: String(row[2]),
+        phone: String(row[3]),
+        date: date,
+        time: String(row[5]).slice(0, 5),
+        party: Number(row[6]) || 0,
+        note: String(row[7] || ''),
+        status: String(row[8] || STATUSES[0]),
+        created_at:
+          row[0] instanceof Date
+            ? Utilities.formatDate(row[0], TZ, 'yyyy-MM-dd HH:mm')
+            : String(row[0] || ''),
+      });
+    });
+  }
+
+  rows.sort(function (a, b) {
+    return a.time < b.time ? -1 : a.time > b.time ? 1 : 0;
+  });
+  const people = rows.reduce(function (sum, r) {
+    return sum + (r.party || 0);
+  }, 0);
+
+  return json_({ ok: true, service: 'sod-reserve', date: date, count: rows.length, people: people, rows: rows });
+}
+
+function today_() {
+  return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+}
+
+/** วันที่จองอาจมาเป็น Date (ถ้าคอลัมน์ถูกตั้งรูปแบบอื่น) หรือข้อความ dd/MM/yyyy */
+function dateOf_(value) {
+  if (Object.prototype.toString.call(value) === '[object Date]') {
+    return Utilities.formatDate(value, TZ, 'yyyy-MM-dd');
+  }
+  const text = String(value == null ? '' : value).trim();
+  const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return iso[0];
+  const dmy = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (dmy) {
+    const d = new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]));
+    return Utilities.formatDate(d, TZ, 'yyyy-MM-dd');
+  }
+  return '';
 }
 
 function parsePayload_(e) {
