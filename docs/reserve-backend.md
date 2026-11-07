@@ -248,3 +248,41 @@ POST { "action": "unlock", "token": "…", "date": "YYYY-MM-DD", "tables": ["12"
 - รหัสจองที่เห็นแล้วถูกจำไว้ใน `localStorage` คีย์ `sod-seen-bookings` (เก็บ 5 วันล่าสุด) รีเฟรชหน้าซ้ำจึงไม่เตือนซ้ำ
   — ถ้าต้องการล้าง ให้ลบ key นี้ออก หรือกดล้างข้อมูลเว็บไซต์
 
+
+## แจ้งเตือนจองใหม่เข้า LINE กลุ่มร้าน
+
+ทุกครั้งที่มีคนจองใหม่ (หลังเพิ่มแถวในชีตสำเร็จ) สคริปต์จะ push ข้อความเข้ากลุ่ม LINE ของร้านผ่าน **LINE Messaging API**
+ถ้ายังไม่ตั้งค่า ระบบจะข้ามการแจ้งเตือนไปเงียบ ๆ — การบันทึกจองยังทำงานปกติ
+
+**ข้อความที่ส่ง**
+
+```
+🔔 จองใหม่ · SOD! signature
+18:00 น. · 7 พ.ย.
+นนท์ · 2 คน · โต๊ะ 24
+081-234-5678
+หมายเหตุ: ขอโต๊ะริมหน้าต่าง
+รหัส SOD-AAAA1
+```
+
+**ขั้นตอนติดตั้ง**
+
+1. สร้าง **LINE Official Account** ของร้าน แล้วเปิดใช้ **Messaging API** ที่ <https://developers.line.biz/console/>
+   (เลือก provider → สร้าง channel ชนิด Messaging API)
+2. ในแท็บ **Messaging API** ของ channel กดออก **Channel access token (long-lived)** แล้วคัดลอกไว้
+3. เพิ่มบอทของร้าน (สแกน QR ในแท็บ Messaging API) เข้ากลุ่ม LINE ที่พนักงานอยู่
+4. ตั้ง **Webhook URL** ชั่วคราวเป็น URL เว็บแอปของสคริปต์ พร้อม token:
+   `<URL /exec>?token=<SHARED_TOKEN>` แล้วกด **Verify** / พิมพ์ข้อความอะไรก็ได้ในกลุ่ม 1 ครั้ง
+   → สคริปต์จะจด `LINE_TO` (groupId ของกลุ่มนั้น) ลง Script Properties ให้อัตโนมัติ
+   (เสร็จแล้วจะปิด Webhook หรือคงไว้ก็ได้ — endpoint นี้ตอบ `{"ok":true,"line":"captured"}`)
+5. ไปที่ Apps Script → ⚙️ **Project Settings → Script Properties** ตั้งค่า
+   | Property | ค่า |
+   | --- | --- |
+   | `LINE_CHANNEL_TOKEN` | channel access token จากข้อ 2 |
+   | `LINE_TO` | groupId (จดอัตโนมัติจากข้อ 4) หรือ userId ของพนักงานที่ต้องการให้เตือนเดี่ยว |
+6. ทดสอบ: เลือกฟังก์ชัน **`testLine`** แล้วกด Run → ดูข้อความในกลุ่ม + ผลใน Execution log (`sent` / `failed` / `skipped`)
+   - `skipped` = ยังไม่ได้ตั้ง property, `failed` = token ผิด / บอทไม่ได้อยู่ในกลุ่ม (อ่าน error ใน log)
+
+> ทุกครั้งที่แก้ไฟล์นี้ต้อง **Deploy → Manage deployments → แก้เวอร์ชันใหม่ (New version)** ก่อน ระบบ GitHub Pages จึงจะเห็นการเปลี่ยนแปลง
+> ข้อความจะส่งเฉพาะการจองใหม่ ไม่ส่งตอนล็อคโต๊ะหรือตอนพนักงานเปลี่ยนสถานะ
+

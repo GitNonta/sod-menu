@@ -18,6 +18,8 @@ const STATUSES = ['รอยืนยัน', 'ยืนยันแล้ว', 
 const LOCK_TAB = 'TableLocks';
 const LOCK_HEADERS = ['วันที่', 'โต๊ะ', 'หมายเหตุ', 'บันทึกเมื่อ'];
 const TZ = 'Asia/Bangkok';
+const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
+const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
 /** รันครั้งเดียวหลังวางโค้ด: สร้างแท็บ + หัวตาราง + รูปแบบคอลัมน์ที่จำเป็น */
 function setup() {
@@ -150,10 +152,20 @@ function removeLock_(date, table) {
 
 function doPost(e) {
   try {
+    const raw = (e && e.postData && e.postData.contents) || '';
+    const expected = PropertiesService.getScriptProperties().getProperty('SHARED_TOKEN');
+
+    /* LINE webhook (ใช้ครั้งเดียวตอนตั้งค่า) — ส่ง event มาก็จริง แต่ไม่มี token ในตัว
+       จึงใช้ ?token=SHARED_TOKEN ที่ต่อท้าย Webhook URL แทน */
+    if (raw.indexOf('"events"') !== -1) {
+      const hookToken = String((e && e.parameter && e.parameter.token) || '');
+      if (expected && hookToken !== String(expected)) return json_({ ok: false, error: 'unauthorized' });
+      return captureLineTarget_(raw);
+    }
+
     const payload = parsePayload_(e);
     if (!payload) return json_({ ok: false, error: 'empty body' });
 
-    const expected = PropertiesService.getScriptProperties().getProperty('SHARED_TOKEN');
     if (expected) {
       const sent = (e && e.parameter && e.parameter.token) || payload.token || '';
       if (String(sent) !== String(expected)) return json_({ ok: false, error: 'unauthorized' });
@@ -205,6 +217,9 @@ function doPost(e) {
       STATUSES[0],
       String(payload.table || '').toUpperCase().slice(0, 40),
     ]);
+
+    /* แจ้งเข้ากลุ่ม LINE ของร้าน — ถ้าล้มเหลวก็ไม่ทำให้การจองหาย */
+    notifyLine_(payload);
 
     return json_({ ok: true, code: code, row: sheet.getLastRow() });
   } catch (err) {
@@ -318,6 +333,96 @@ function busy_(rawDate) {
 
 function today_() {
   return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+}
+
+/* ── แจ้งเตือนจองใหม่เข้า LINE กลุ่มร้าน (Messaging API) ─────────
+   ต้องตั้ง Script Properties: LINE_CHANNEL_TOKEN (channel access token)
+   และ LINE_TO (groupId / roomId / userId) — ไม่ตั้งก็ข้ามไปเงียบ ๆ
+   วิธีเอา groupId: ตั้ง Webhook URL เป็น <URL เว็บแอป>?token=<SHARED_TOKEN>
+   แล้วพิมพ์อะไรสักอย่างในกลุ่ม → สคริปต์จะจด LINE_TO ให้เอง */
+function lineConfig_() {
+  const props = PropertiesService.getScriptProperties();
+  return {
+    token: String(props.getProperty('LINE_CHANNEL_TOKEN') || '').trim(),
+    to: String(props.getProperty('LINE_TO') || '').trim(),
+  };
+}
+
+function lineMessage_(p) {
+  const parts = String(p.date || '').split('-');
+  const when =
+    parts.length === 3 ? Number(parts[2]) + ' ' + (THAI_MONTHS[Number(parts[1]) - 1] || '') : String(p.date || '');
+  const out = [
+    '🔔 จองใหม่ · SOD! signature',
+    String(p.time || '') + ' น. · ' + when,
+    String(p.name || '—') + ' · ' + (Number(p.party) || 1) + ' คน' +
+      (p.table ? ' · โต๊ะ ' + String(p.table).toUpperCase() : ''),
+    String(p.phone || ''),
+  ];
+  if (p.note) out.push('หมายเหตุ: ' + String(p.note).slice(0, 80));
+  out.push('รหัส ' + String(p.code || ''));
+  return out.filter(Boolean).join('\n');
+}
+
+/** คืน 'sent' | 'failed' | 'skipped' */
+function notifyLine_(p) {
+  const conf = lineConfig_();
+  if (!conf.token || !conf.to) return 'skipped';
+  try {
+    const res = UrlFetchApp.fetch(LINE_PUSH_URL, {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + conf.token },
+      payload: JSON.stringify({ to: conf.to, messages: [{ type: 'text', text: lineMessage_(p) }] }),
+      muteHttpExceptions: true,
+    });
+    const status = res.getResponseCode();
+    if (status >= 300) {
+      console.error('LINE push failed: ' + status + ' ' + res.getContentText());
+      return 'failed';
+    }
+    return 'sent';
+  } catch (err) {
+    console.error('LINE push error: ' + err);
+    return 'failed';
+  }
+}
+
+/** รันจาก editor เพื่อทดสอบว่าตั้งค่า LINE ถูก (ดูผลใน Execution log) */
+function testLine() {
+  Logger.log(
+    'ผลการส่ง: %s',
+    notifyLine_({
+      code: 'SOD-TEST',
+      name: 'ทดสอบระบบ',
+      phone: '0800000000',
+      date: today_(),
+      time: Utilities.formatDate(new Date(), TZ, 'HH:mm'),
+      party: 2,
+      table: '24',
+      note: 'ข้อความทดสอบจาก Apps Script',
+    })
+  );
+}
+
+/** จด groupId/roomId/userId จาก event ของ LINE ลง Script Property LINE_TO */
+function captureLineTarget_(raw) {
+  let body;
+  try {
+    body = JSON.parse(raw);
+  } catch (_) {
+    return json_({ ok: true, service: 'sod-reserve' });
+  }
+  const events = Array.isArray(body.events) ? body.events : [];
+  for (let i = 0; i < events.length; i += 1) {
+    const source = (events[i] && events[i].source) || {};
+    const id = source.groupId || source.roomId || source.userId || '';
+    if (!id) continue;
+    PropertiesService.getScriptProperties().setProperty('LINE_TO', id);
+    console.log('บันทึก LINE_TO แล้ว: ' + id);
+    break;
+  }
+  return json_({ ok: true, service: 'sod-reserve', line: 'captured' });
 }
 
 /** วันที่จองอาจมาเป็น Date (ถ้าคอลัมน์ถูกตั้งรูปแบบอื่น) หรือข้อความ dd/MM/yyyy */
