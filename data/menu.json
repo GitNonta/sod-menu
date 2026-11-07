@@ -1,5 +1,5 @@
 {
-  "version": "1.0.5",
+  "version": "1.0.6",
   "shop": {
     "name": "SOD! signature",
     "currency": "฿",
@@ -14,6 +14,17 @@
       "accent_magenta": "#ff3ea5",
       "accent_orange": "#ff9f1c",
       "text": "#ffffff"
+    },
+    "reserve": {
+      "enabled": true,
+      "hint": "กรอกข้อมูลให้ครบ แล้วรอร้านยืนยันอีกครั้ง",
+      "open_time": "17:00",
+      "close_time": "02:00",
+      "max_party": 20,
+      "max_days": 30,
+      "webhook": "",
+      "line_url": "",
+      "phone": ""
     }
   },
   "categories": [

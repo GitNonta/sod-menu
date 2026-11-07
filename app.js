@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.5';
+  const ASSET_VERSION = '1.0.6';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -80,6 +80,29 @@
     splitPeople: $('splitPeople'),
     splitEach: $('splitEach'),
     orderClear: $('orderClear'),
+    reserveOpen: $('reserveOpen'),
+    reserveSheet: $('reserveSheet'),
+    reserveScrim: $('reserveScrim'),
+    reserveX: $('reserveX'),
+    reserveHint: $('reserveHint'),
+    reserveLast: $('reserveLast'),
+    reserveForm: $('reserveForm'),
+    reserveName: $('rsvName'),
+    reservePhone: $('rsvPhone'),
+    reserveDate: $('rsvDate'),
+    reserveTime: $('rsvTime'),
+    reserveParty: $('rsvParty'),
+    reserveNote: $('rsvNote'),
+    reserveErr: $('reserveErr'),
+    reserveSubmit: $('reserveSubmit'),
+    reserveDone: $('reserveDone'),
+    reserveCode: $('reserveCode'),
+    reserveSummary: $('reserveSummary'),
+    reserveStatus: $('reserveStatus'),
+    reserveShare: $('reserveShare'),
+    reserveCall: $('reserveCall'),
+    reserveCopy: $('reserveCopy'),
+    reserveAgain: $('reserveAgain'),
   };
 
   const THB = (n) => '฿' + Number(n).toLocaleString('th-TH');
@@ -159,6 +182,7 @@
     cards: [],
     blocks: [],
     activeCat: null,
+    reserve: null,
   };
 
   /* ── Intro ─────────────────────────────────────────────────── */
@@ -263,6 +287,8 @@
     if (shop.name_th && el.brandSub) el.brandSub.textContent = shop.name_th;
     if (shop.name_th && el.footerSub) el.footerSub.textContent = shop.name_th;
     if (shop.midnight_note && el.promoNote) el.promoNote.textContent = shop.midnight_note;
+    state.reserve = shop.reserve || null;
+    syncReserveUI();
     document.title = `${shop.name}${shop.name_th ? ' — ' + shop.name_th : ''} | เมนู & โปรโมชัน`;
   }
 
@@ -1207,6 +1233,335 @@
     });
   }
 
+  /* ── Table reservation ─────────────────────────────────────────
+     The page is static, so a booking can travel three ways, best first:
+     1. POST to shop.reserve.webhook (Apps Script, Formspree, Supabase fn, …)
+     2. a prefilled LINE message the guest sends to the shop
+     3. a phone call, when the shop publishes a number
+     The booking is always kept on the device as well, so the guest can show
+     the code at the door even before the shop connects a webhook. */
+  const RESERVE_KEY = 'sod-reserve-last';
+
+  const RESERVE_DEFAULTS = {
+    enabled: true,
+    open_time: '17:00',
+    close_time: '02:00',
+    max_party: 20,
+    max_days: 30,
+    webhook: '',
+    line_url: '',
+    phone: '',
+    hint: 'กรอกข้อมูลให้ครบ แล้วรอร้านยืนยันอีกครั้ง',
+  };
+
+  let reserveCurrent = null;
+  let reserveReturnFocus = null;
+
+  function reserveConfig() {
+    const raw = (state.data && state.data.shop && state.data.shop.reserve) || {};
+    return Object.assign({}, RESERVE_DEFAULTS, raw);
+  }
+
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const isoDate = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+  function hhmmToMin(value) {
+    const [h, m] = String(value || '').split(':').map(Number);
+    return Number.isFinite(h) ? h * 60 + (Number.isFinite(m) ? m : 0) : NaN;
+  }
+
+  /* service hours may wrap past midnight (17:00 → 02:00) */
+  function inService(min, open, close) {
+    if (!Number.isFinite(min) || !Number.isFinite(open) || !Number.isFinite(close)) return false;
+    return open <= close ? min >= open && min <= close : min >= open || min <= close;
+  }
+
+  /* first quarter-hour still inside service hours, at least 45 min out */
+  function nextBookableTime(cfg) {
+    const open = hhmmToMin(cfg.open_time);
+    const close = hhmmToMin(cfg.close_time);
+    let t = new Date(Date.now() + 45 * 60000);
+    t.setSeconds(0, 0);
+    t.setMinutes(Math.ceil(t.getMinutes() / 15) * 15);
+    for (let i = 0; i < 96 * 3; i += 1) {
+      if (inService(t.getHours() * 60 + t.getMinutes(), open, close)) return t;
+      t = new Date(t.getTime() + 15 * 60000);
+    }
+    return new Date(Date.now() + 60 * 60000);
+  }
+
+  function makeReserveCode() {
+    const stamp = Date.now().toString(36).slice(-3).toUpperCase();
+    const rand = Math.random().toString(36).slice(2, 4).toUpperCase();
+    return `SOD-${stamp}${rand}`;
+  }
+
+  function thaiShortDate(iso) {
+    const d = new Date(`${iso}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+  }
+
+  function readReserveRecord() {
+    try {
+      const rec = JSON.parse(localStorage.getItem(RESERVE_KEY) || 'null');
+      return rec && rec.code ? rec : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function saveReserveRecord(rec) {
+    try {
+      localStorage.setItem(RESERVE_KEY, JSON.stringify(rec));
+    } catch (_) {
+      /* storage blocked — the code on screen still works */
+    }
+  }
+
+  function reserveMessage(rec) {
+    return [
+      'จองโต๊ะ SOD! signature',
+      `รหัส: ${rec.code}`,
+      `ชื่อ: ${rec.name}`,
+      `เบอร์: ${rec.phone}`,
+      `วันที่: ${thaiShortDate(rec.date)} เวลา ${rec.time} น.`,
+      `จำนวน: ${rec.party} คน`,
+      rec.note ? `หมายเหตุ: ${rec.note}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  function reserveLineHref(rec) {
+    const cfg = reserveConfig();
+    const text = encodeURIComponent(reserveMessage(rec));
+    if (cfg.line_url) {
+      if (cfg.line_url.includes('oaMessage')) return (cfg.line_url.includes('?') ? cfg.line_url : `${cfg.line_url}/?`) + text;
+      return cfg.line_url;
+    }
+    return `https://line.me/R/share?text=${text}`;
+  }
+
+  function syncReserveUI() {
+    const cfg = reserveConfig();
+    const on = cfg.enabled !== false;
+    if (el.reserveOpen) el.reserveOpen.hidden = !on;
+    if (el.reserveHint) el.reserveHint.textContent = cfg.hint || RESERVE_DEFAULTS.hint;
+    if (el.reserveParty) {
+      const max = Math.max(1, Number(cfg.max_party) || 20);
+      const picked = Number(el.reserveParty.value);
+      el.reserveParty.innerHTML = Array.from(
+        { length: max },
+        (_, i) => `<option value="${i + 1}">${i + 1} คน</option>`
+      ).join('');
+      el.reserveParty.value = String(picked >= 1 && picked <= max ? picked : Math.min(2, max));
+    }
+    if (el.reserveLast) {
+      const last = readReserveRecord();
+      const today = isoDate(new Date());
+      if (last && last.date >= today) {
+        el.reserveLast.hidden = false;
+        el.reserveLast.innerHTML = `การจองล่าสุด <b>${escapeHTML(last.code)}</b> · ${escapeHTML(
+          thaiShortDate(last.date)
+        )} ${escapeHTML(last.time)} · ${escapeHTML(String(last.party))} คน`;
+      } else {
+        el.reserveLast.hidden = true;
+        el.reserveLast.textContent = '';
+      }
+    }
+  }
+
+  function openReserve() {
+    if (!el.reserveSheet || !el.reserveSheet.hidden) return;
+    const cfg = reserveConfig();
+    if (cfg.enabled === false) return;
+    reserveReturnFocus = document.activeElement;
+    syncReserveUI();
+    el.reserveForm.hidden = false;
+    el.reserveDone.hidden = true;
+    el.reserveErr.hidden = true;
+    const now = new Date();
+    el.reserveDate.min = isoDate(now);
+    if (!el.reserveDate.value) {
+      const slot = nextBookableTime(cfg);
+      el.reserveDate.value = isoDate(slot);
+      el.reserveTime.value = `${pad2(slot.getHours())}:${pad2(slot.getMinutes())}`;
+    }
+    const last = readReserveRecord();
+    if (last) {
+      if (!el.reserveName.value) el.reserveName.value = last.name || '';
+      if (!el.reservePhone.value) el.reservePhone.value = last.phone || '';
+    }
+    el.reserveSheet.hidden = false;
+    document.body.classList.add('has-sheet');
+    (el.reserveName.value ? el.reserveSubmit : el.reserveName).focus();
+  }
+
+  function closeReserve() {
+    if (!el.reserveSheet || el.reserveSheet.hidden) return;
+    el.reserveSheet.hidden = true;
+    document.body.classList.remove('has-sheet');
+    if (reserveReturnFocus && typeof reserveReturnFocus.focus === 'function') reserveReturnFocus.focus();
+  }
+
+  function reserveError(message) {
+    if (!el.reserveErr) return false;
+    el.reserveErr.hidden = !message;
+    el.reserveErr.textContent = message || '';
+    if (message) el.reserveErr.scrollIntoView({ block: 'nearest' });
+    return !message;
+  }
+
+  function readReserveForm() {
+    const cfg = reserveConfig();
+    const name = el.reserveName.value.trim();
+    const phone = el.reservePhone.value.replace(/\D/g, '');
+    const date = el.reserveDate.value;
+    const time = el.reserveTime.value;
+    const party = Number(el.reserveParty.value) || 0;
+    const note = el.reserveNote.value.trim();
+    const maxParty = Math.max(1, Number(cfg.max_party) || 20);
+
+    if (name.length < 2) return { error: 'กรุณากรอกชื่อผู้จอง' };
+    if (phone.length < 9 || phone.length > 10) return { error: 'กรุณากรอกเบอร์โทรให้ครบ (9–10 หลัก)' };
+    if (!date) return { error: 'กรุณาเลือกวันที่ต้องการจอง' };
+    if (!time) return { error: 'กรุณาเลือกเวลาที่ต้องการจอง' };
+    if (!party || party > maxParty) return { error: `จำนวนคนต้องอยู่ระหว่าง 1–${maxParty}` };
+
+    const when = new Date(`${date}T${time}:00`);
+    if (Number.isNaN(when.getTime())) return { error: 'วันหรือเวลาไม่ถูกต้อง' };
+    if (!inService(when.getHours() * 60 + when.getMinutes(), hhmmToMin(cfg.open_time), hhmmToMin(cfg.close_time))) {
+      return { error: `ร้านรับจองช่วง ${cfg.open_time}–${cfg.close_time} น.` };
+    }
+    if (when.getTime() < Date.now() + 14 * 60000) return { error: 'เวลานี้ผ่านมาแล้ว หรือใกล้อีกเกินไป' };
+    const maxDays = Number(cfg.max_days) || 30;
+    if (when.getTime() > Date.now() + maxDays * 86400000) return { error: `จองล่วงหน้าได้ไม่เกิน ${maxDays} วัน` };
+
+    return {
+      rec: {
+        code: makeReserveCode(),
+        name,
+        phone,
+        date,
+        time,
+        party,
+        note,
+        created_at: new Date().toISOString(),
+      },
+    };
+  }
+
+  function renderReserveDone(rec, status) {
+    reserveCurrent = rec;
+    el.reserveForm.hidden = true;
+    el.reserveDone.hidden = false;
+    el.reserveCode.textContent = rec.code;
+    const rows = [
+      ['ชื่อ', rec.name],
+      ['เบอร์', rec.phone],
+      ['วันเวลา', `${thaiShortDate(rec.date)} · ${rec.time} น.`],
+      ['จำนวน', `${rec.party} คน`],
+    ];
+    if (rec.note) rows.push(['หมายเหตุ', rec.note]);
+    el.reserveSummary.innerHTML = rows
+      .map(([k, v]) => `<div class="reserve__row"><dt>${escapeHTML(k)}</dt><dd>${escapeHTML(String(v))}</dd></div>`)
+      .join('');
+    el.reserveStatus.textContent = status;
+    el.reserveShare.href = reserveLineHref(rec);
+    const tel = String(reserveConfig().phone || '').replace(/[^\d+]/g, '');
+    el.reserveCall.hidden = !tel;
+    if (tel) el.reserveCall.href = `tel:${tel}`;
+    const panel = el.reserveSheet.querySelector('.sheet__panel');
+    if (panel) panel.scrollTop = 0;
+  }
+
+  async function submitReserve(e) {
+    e.preventDefault();
+    if (el.reserveSubmit.disabled) return;
+    const { rec, error } = readReserveForm();
+    if (!reserveError(error)) return;
+    const cfg = reserveConfig();
+
+    el.reserveSubmit.disabled = true;
+    el.reserveSubmit.textContent = 'กำลังส่ง…';
+    saveReserveRecord(rec);
+
+    let status = 'บันทึกการจองไว้ในเครื่องนี้แล้ว — ส่งข้อความให้ร้านทาง LINE เพื่อยืนยันได้เลย';
+    if (cfg.webhook) {
+      try {
+        const res = await fetch(cfg.webhook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign({ source: 'sod-menu' }, rec)),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        status = `ส่งคำขอถึงร้านแล้ว — รอร้านติดต่อกลับที่ ${rec.phone}`;
+      } catch (err) {
+        console.error('[reserve] webhook failed:', err);
+        status = 'ส่งอัตโนมัติไม่สำเร็จ — กรุณาส่งข้อความทาง LINE หรือโทรหาร้าน';
+      }
+    }
+
+    el.reserveSubmit.disabled = false;
+    el.reserveSubmit.textContent = 'ยืนยันการจอง';
+    renderReserveDone(rec, status);
+    syncReserveUI();
+    toast('ได้รับคำขอจองแล้ว · ' + rec.code);
+  }
+
+  async function copyReserve(rec) {
+    const text = reserveMessage(rec);
+    try {
+      await navigator.clipboard.writeText(text);
+      toast('คัดลอกข้อความแล้ว');
+      return;
+    } catch (_) {
+      /* clipboard API blocked — fall back to a hidden selection */
+    }
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.append(area);
+    area.select();
+    try {
+      document.execCommand('copy');
+      toast('คัดลอกข้อความแล้ว');
+    } catch (_) {
+      toast('คัดลอกไม่สำเร็จ — เลือกข้อความด้วยตัวเอง');
+    }
+    area.remove();
+  }
+
+  function wireReserve() {
+    if (!el.reserveSheet) return;
+    el.reserveOpen?.addEventListener('click', openReserve);
+    el.reserveX?.addEventListener('click', closeReserve);
+    el.reserveScrim?.addEventListener('click', closeReserve);
+    el.reserveForm?.addEventListener('submit', submitReserve);
+    el.reserveCopy?.addEventListener('click', () => {
+      if (reserveCurrent) copyReserve(reserveCurrent);
+    });
+    el.reserveAgain?.addEventListener('click', () => {
+      el.reserveDone.hidden = true;
+      el.reserveForm.hidden = false;
+      el.reserveErr.hidden = true;
+      el.reserveNote.value = '';
+      el.reserveSubmit.disabled = false;
+      el.reserveSubmit.textContent = 'ยืนยันการจอง';
+      el.reserveName.focus();
+    });
+    el.reserveLast?.addEventListener('click', () => {
+      const last = readReserveRecord();
+      if (last) renderReserveDone(last, 'การจองนี้บันทึกไว้ในเครื่องคุณ — แสดงรหัสนี้กับพนักงานที่ร้านได้เลย');
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && el.reserveSheet && !el.reserveSheet.hidden) closeReserve();
+    });
+  }
+
   /* ── Chrome: back-to-top ───────────────────────────────────── */
   function wireToTop() {
     let raf = 0;
@@ -1270,6 +1625,7 @@
   wireOrder();
   wireMixer();
   wireSheet();
+  wireReserve();
   wireToTop();
   wireTabs();
   wireScrollSpy();

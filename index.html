@@ -31,7 +31,7 @@
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;900&display=swap" /></noscript>
   <!-- bump the ?v= stamp whenever style.css or app.js changes: GitHub Pages
        caches both for 10 minutes, so a returning visitor would keep the old design -->
-  <link rel="stylesheet" href="./style.css?v=1.1.5" />
+  <link rel="stylesheet" href="./style.css?v=1.1.6" />
 </head>
 <body>
   <!-- ── Intro animation (skippable) ───────────────────────────── -->
@@ -65,6 +65,7 @@
             <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4" />
           </svg>
         </button>
+        <button class="site-header__book" id="reserveOpen" type="button" hidden>จองโต๊ะ</button>
         <a class="site-header__cta" href="#menu">ดูเมนู</a>
       </div>
     </div>
@@ -209,9 +210,66 @@
     </section>
   </div>
 
+  <!-- ── Table reservation: hours and channels come from shop.reserve ── -->
+  <div class="sheet" id="reserveSheet" hidden>
+    <div class="sheet__scrim" id="reserveScrim"></div>
+    <section class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="reserveTitle">
+      <header class="sheet__head">
+        <h2 class="sheet__title" id="reserveTitle">จองโต๊ะ</h2>
+        <button class="sheet__close" id="reserveX" type="button" aria-label="ปิดการจองโต๊ะ">✕</button>
+      </header>
+      <p class="reserve__hint" id="reserveHint">กรอกข้อมูลให้ครบ แล้วรอร้านยืนยันอีกครั้ง</p>
+      <button class="reserve__last" id="reserveLast" type="button" hidden></button>
+
+      <form class="reserve__form" id="reserveForm" novalidate>
+        <div class="field">
+          <label class="field__label" for="rsvName">ชื่อผู้จอง</label>
+          <input class="field__input" id="rsvName" name="name" type="text" maxlength="60" autocomplete="name" placeholder="ชื่อที่ให้พนักงานเรียก" required />
+        </div>
+        <div class="field">
+          <label class="field__label" for="rsvPhone">เบอร์โทร</label>
+          <input class="field__input" id="rsvPhone" name="phone" type="tel" inputmode="tel" maxlength="15" autocomplete="tel" placeholder="08x xxx xxxx" required />
+        </div>
+        <div class="field__row">
+          <div class="field">
+            <label class="field__label" for="rsvDate">วันที่</label>
+            <input class="field__input" id="rsvDate" name="date" type="date" required />
+          </div>
+          <div class="field">
+            <label class="field__label" for="rsvTime">เวลา</label>
+            <input class="field__input" id="rsvTime" name="time" type="time" step="900" required />
+          </div>
+        </div>
+        <div class="field">
+          <label class="field__label" for="rsvParty">จำนวนคน</label>
+          <select class="field__input" id="rsvParty" name="party"></select>
+        </div>
+        <div class="field">
+          <label class="field__label" for="rsvNote">หมายเหตุ (ไม่บังคับ)</label>
+          <textarea class="field__input field__input--area" id="rsvNote" name="note" rows="2" maxlength="200" placeholder="เช่น ขอโต๊ะริมหน้าต่าง / มาสายเล็กน้อย"></textarea>
+        </div>
+        <p class="reserve__error" id="reserveErr" role="alert" hidden></p>
+        <button class="reserve__submit" id="reserveSubmit" type="submit">ยืนยันการจอง</button>
+      </form>
+
+      <div class="reserve__done" id="reserveDone" hidden>
+        <p class="reserve__done-title">ได้รับคำขอจองแล้ว</p>
+        <p class="reserve__code" id="reserveCode">SOD-0000</p>
+        <dl class="reserve__summary" id="reserveSummary"></dl>
+        <p class="reserve__status" id="reserveStatus" role="status"></p>
+        <div class="reserve__actions">
+          <a class="reserve__action reserve__action--primary" id="reserveShare" href="https://line.me/R/share" target="_blank" rel="noopener">ส่งให้ร้านทาง LINE</a>
+          <a class="reserve__action" id="reserveCall" href="tel:" hidden>โทรหาร้าน</a>
+          <button class="reserve__action" id="reserveCopy" type="button">คัดลอกข้อความ</button>
+          <button class="reserve__action" id="reserveAgain" type="button">จองอีกครั้ง</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
   <button class="to-top" id="toTop" type="button" aria-label="กลับขึ้นด้านบน" hidden>↑</button>
   <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
 
-  <script src="./app.js?v=1.1.5" defer></script>
+  <script src="./app.js?v=1.1.6" defer></script>
 </body>
 </html>

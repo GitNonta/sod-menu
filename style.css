@@ -2348,3 +2348,234 @@ body.has-order .site-footer {
     display: none;
   }
 }
+
+/* ── Table reservation ─────────────────────────────────────── */
+.site-header__book {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: transform 0.3s cubic-bezier(0.22, 1.35, 0.36, 1), opacity 0.2s ease;
+}
+
+.site-header__book[hidden] {
+  display: none;
+}
+
+.site-header__book:active {
+  transform: scale(0.96);
+}
+
+/* on narrow phones the booking button is the one action that must stay */
+@media (max-width: 430px) {
+  .site-header__cta {
+    display: none;
+  }
+}
+
+.reserve__hint {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.reserve__last {
+  width: 100%;
+  margin: 10px 0 0;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--line-strong);
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+  font-size: 0.76rem;
+  text-align: left;
+}
+
+.reserve__last b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.reserve__form {
+  display: grid;
+  gap: 11px;
+  margin-top: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.field__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.field__label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.field__input {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.field__input:focus-visible {
+  outline: none;
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+
+.field__input--area {
+  min-height: 62px;
+  resize: vertical;
+}
+
+select.field__input {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 17px) 20px, calc(100% - 12px) 20px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.reserve__error {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--danger, #c0392b);
+}
+
+.reserve__submit {
+  min-height: 50px;
+  margin-top: 2px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 0.92rem;
+  font-weight: 700;
+  transition: transform 0.3s cubic-bezier(0.22, 1.35, 0.36, 1), opacity 0.2s ease;
+}
+
+.reserve__submit:active {
+  transform: scale(0.97);
+}
+
+.reserve__submit[disabled] {
+  opacity: 0.6;
+}
+
+.reserve__done {
+  margin-top: 12px;
+  animation: cardRise 0.42s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.reserve__done-title {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--muted-strong);
+}
+
+.reserve__code {
+  margin: 6px 0 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+.reserve__summary {
+  margin: 10px 0 0;
+  display: grid;
+  gap: 1px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--line);
+}
+
+.reserve__row {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface-soft);
+}
+
+.reserve__row dt {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.reserve__row dd {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--ink);
+  word-break: break-word;
+}
+
+.reserve__status {
+  margin: 10px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--muted-strong);
+}
+
+.reserve__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.reserve__action {
+  display: grid;
+  place-items: center;
+  min-height: 46px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+  transition: transform 0.3s cubic-bezier(0.22, 1.35, 0.36, 1), border-color 0.2s ease;
+}
+
+.reserve__action:active {
+  transform: scale(0.97);
+}
+
+.reserve__action--primary {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.reserve__action[hidden] {
+  display: none;
+}
