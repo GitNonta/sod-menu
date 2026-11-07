@@ -1,0 +1,137 @@
+# ต่อการจองโต๊ะเข้าระบบร้าน (Google Sheet + Apps Script)
+
+เว็บเมนูเป็น static (GitHub Pages) จึงไม่มีเซิร์ฟเวอร์ของตัวเอง — ฟอร์มจองจะ **POST JSON** ไปที่ URL ที่ตั้งไว้ใน
+`data/menu.json` → `shop.reserve.webhook` ตัวรับที่แนะนำคือ **Google Apps Script Web App** ที่ต่อท้ายแถวลง Google Sheet
+(ฟรี ไม่ต้องมีเซิร์ฟเวอร์ ไม่ต้องมีบัตรเครดิต) ใช้โค้ดที่ [`reserve-webhook.gs`](../reserve-webhook.gs)
+
+```
+เว็บเมนู (มือถือลูกค้า)
+   │  POST text/plain;charset=utf-8  { code, name, phone, date, time, party, note }
+   ▼
+Apps Script Web App  ──►  Google Sheet "Reservations" (1 แถว / 1 การจอง)
+   │
+   └─►  { ok: true, code: "SOD-XXXXX" }  →  เว็บขึ้นกล่อง "ได้รับคำขอจองแล้ว"
+```
+
+> ใช้ `text/plain` เพื่อ **ไม่ให้เบราว์เซอร์ส่ง CORS preflight (OPTIONS)** เพราะ Apps Script ตอบ preflight ไม่ได้
+> เนื้อหายังเป็น JSON ปกติ ฝั่ง Apps Script จึง `JSON.parse` ได้เหมือนเดิม
+
+---
+
+## 1. สร้างสเปรดชีต
+
+1. เปิด <https://sheets.new> สร้างไฟล์ใหม่ ตั้งชื่อ เช่น `SOD! reservations`
+2. เมนู **Extensions → Apps Script** (จะเปิดสคริปต์ที่ผูกกับไฟล์นี้)
+3. ลบโค้ดตัวอย่างใน `Code.gs` แล้ววางเนื้อหาทั้งหมดของ [`reserve-webhook.gs`](../reserve-webhook.gs)
+4. กด **Save** (Ctrl+S) ตั้งชื่อโปรเจกต์ เช่น `sod-reserve`
+
+## 2. ตั้งค่า Script Properties
+
+ในหน้า Apps Script → **Project Settings (ไอคอนเฟือง) → Script properties → Add script property**
+
+| Key | Value | จำเป็น |
+| --- | --- | --- |
+| `SHARED_TOKEN` | สตริงสุ่มยาว ๆ เช่น `sod-9f2c7b41e8` | แนะนำอย่างยิ่ง |
+| `SHEET_ID` | ไอดีสเปรดชีตจาก URL `.../spreadsheets/d/<ไอดีนี้>/edit` | ใส่เมื่อสคริปต์ไม่ผูกกับชีต |
+
+กด **Save script properties** แล้วเลือก **Run → setup** หนึ่งครั้ง
+(ครั้งแรก Google จะขออนุญาตสิทธิ์ — เลือกบัญชี → *Advanced* → *Go to sod-reserve (unsafe)* → Allow)
+
+ตรวจผล: ในชีตจะมีแท็บ **Reservations** พร้อมหัวตาราง
+`รับเมื่อ | รหัส | ชื่อ | เบอร์โทร | วันที่จอง | เวลา | จำนวนคน | หมายเหตุ | สถานะ`
+
+## 3. Deploy เป็น Web App
+
+1. **Deploy → New deployment → Select type → Web app**
+2. ตั้งค่า
+   - **Description:** `reserve v1`
+   - **Execute as:** `Me (อีเมลของคุณ)`
+   - **Who has access:** `Anyone` ← จำเป็น ไม่งั้นลูกค้าที่ไม่ได้ล็อกอินจะส่งไม่ได้
+3. **Deploy** แล้วคัดลอก **Web app URL** (ลงท้าย `/exec`)
+
+### ทดสอบด้วย curl
+
+```bash
+curl -s -X POST "https://script.google.com/macros/s/XXXX/exec?token=sod-9f2c7b41e8" \
+  -H 'Content-Type: text/plain;charset=utf-8' \
+  --data '{"code":"SOD-TEST1","name":"ทดสอบ","phone":"0812345678","date":"2026-11-08","time":"19:30","party":4,"note":"curl"}'
+```
+
+ sollte ตอบ `{"ok":true,"code":"SOD-TEST1","row":2}` และมีแถวใหม่ในชีต (ลบแถวทดสอบทิ้งได้)
+
+ตรวจสถานะแบบไม่คืนข้อมูลลูกค้า: เปิด URL เดียวกันด้วย GET → `{"ok":true,"service":"sod-reserve","bookings":N,...}`
+
+## 4. เปิดใช้บนเว็บ
+
+แก้ `data/menu.json`
+
+```json
+"reserve": {
+  "enabled": true,
+  "hint": "กรอกข้อมูลให้ครบ แล้วรอร้านยืนยันอีกครั้ง",
+  "open_time": "17:00",
+  "close_time": "02:00",
+  "max_party": 20,
+  "max_days": 30,
+  "webhook": "https://script.google.com/macros/s/XXXX/exec?token=sod-9f2c7b41e8",
+  "line_url": "https://line.me/R/oaMessage/@yourlineid/?",
+  "phone": "0812345678"
+}
+```
+
+- `webhook` — URL จากข้อ 3 (ใส่ `?token=...` ต่อท้ายเสมอถ้าตั้ง `SHARED_TOKEN`)
+- `line_url` — ถ้าใส่ลิงก์ `oaMessage` ของ LINE OA ปุ่ม "ส่งให้ร้านทาง LINE" จะเปิดแชทร้านพร้อมข้อความ (ถ้าเว้นว่างจะใช้ตัวแชร์ของ LINE)
+- `phone` — ใส่แล้วจะมีปุ่ม "โทรหาร้าน" ในหน้าสำเร็จ
+- **บวกเลข `version`** (เช่น `1.0.7` → `1.0.8`) และ `ASSET_VERSION` ใน `app.js` ให้ตรงกัน แล้วบวก `?v=` ของ `style.css`/`app.js` ใน `index.html` ด้วย
+- commit + push → GitHub Pages อัปเดตเองใน 1–2 นาที
+
+## 5. ฝั่งร้าน: ดูและยืนยันการจอง
+
+- เปิดชีต **Reservations** เรียงใหม่→เก่าได้เลย คอลัมน์ **สถานะ** มี dropdown `รอยืนยัน / ยืนยันแล้ว / ยกเลิก`
+- แนะนำทำ **Filter view** หรือ **Slicer** ตามวันที่, หรือสร้างแท็บสรุปด้วย `=COUNTIFS(Reservations!E:E, TODAY())`
+- อยากได้แจ้งเตือนเข้า LINE/LINE Notify หรืออีเมลทุกครั้งที่มีการจอง: เพิ่มใน `doPost` หลัง `appendRow` เช่น
+
+```javascript
+  MailApp.sendEmail({
+    to: Session.getActiveUser().getEmail(),
+    subject: 'จองใหม่ ' + code + ' · ' + payload.date + ' ' + payload.time,
+    body: payload.name + ' ' + payload.phone + ' · ' + payload.party + ' คน\n' + (payload.note || ''),
+  });
+```
+
+> แก้โค้ดแล้วต้อง **Deploy → Manage deployments → แก้ไข (ดินสอ) → Version: New version → Deploy**
+> ไม่งั้น URL เดิมยังรันโค้ดเก่า
+
+## 6. ความปลอดภัยและความเป็นส่วนตัว
+
+- URL `/exec` เป็น public โดยธรรมชาติ ใครรู้ก็ยิงได้ → ตั้ง `SHARED_TOKEN` และ **อย่าโพสต์ URL นี้ที่อื่น**
+- `doPost` กรองข้อมูลซ้ำด้วยรหัสการจอง (`code`) และตรวจรูปแบบเบอร์/วันที่/เวลา/จำนวนคนก่อนบันทึก
+- เก็บเท่าที่จำเป็น: ชื่อ, เบอร์, วันเวลา, จำนวนคน, หมายเหตุ — ไม่เก็บอีเมล/IP
+- ตาม PDPA: แจ้งวัตถุประสงค์ที่ใช้ข้อมูล (ยืนยันการจอง/ติดต่อกลับ), จำกัดคนที่เข้าถึงชีต, และลบข้อมูลเป็นระยะ
+  (เช่น เพิ่มสูตร/สคริปต์ลบแถวที่เก่ากว่า 90 วัน)
+- ตั้งสิทธิ์ไฟล์ชีตเป็น "Restricted" ให้เฉพาะทีมร้าน แล้วแชร์เฉพาะคนที่ต้องใช้
+- สำรองข้อมูล: **File → Make a copy** เป็นรายเดือน หรือตาราง `=IMPORTRANGE` ไปยังชีตสำรอง
+
+## 7. ถ้าไม่ใช้ Google Sheet
+
+| ทางเลือก | เหมาะกับ | หมายเหตุ |
+| --- | --- | --- |
+| **Apps Script + Sheet** (คู่มือนี้) | ร้านเล็ก–กลาง, ฟรี, ดูผ่านมือถือได้ | ไม่มี preflight, ต้อง deploy ใหม่เมื่อแก้โค้ด |
+| Formspree / Web3Forms | อยากได้อีเมลแจ้งเตือนทันที | ต้องสมัครและเอา endpoint มาใส่ `webhook` (payload เดิมใช้ได้) |
+| Supabase / Firebase | ต้องการหลังบ้านจริง (พนักงานล็อกอิน, จัดการโต๊ะ) | ต้องมีโปรเจกต์และ API key; ต้องเปิด CORS ให้โดเมน `gitnonta.github.io` |
+| Google Form | ง่ายสุด ไม่ต้องเขียนโค้ด | ผู้ใช้ต้องออกจากหน้าเว็บไปกรอกฟอร์ม (เสียอารมณ์และเสีย conversion) |
+
+ทุกทางใช้สัญญาเดิม: `POST` JSON `{code, name, phone, date, time, party, note, created_at, source}`
+และตอบกลับ `{ "ok": true }` — ถ้าตอบ `{"ok": false}` หรือ HTTP ไม่ใช่ 2xx เว็บจะขึ้นข้อความ
+"ส่งอัตโนมัติไม่สำเร็จ — กรุณาส่งข้อความทาง LINE หรือโทรหาร้าน" และยังมีรหัสจองให้ลูกค้าใช้
+
+## 8. แก้ปัญหา
+
+| อาการ | สาเหตุที่พบบ่อย | วิธีแก้ |
+| --- | --- | --- |
+| เว็บขึ้น "ส่งอัตโนมัติไม่สำเร็จ" | URL ผิด/ยังไม่ deploy/สิทธิ์เป็น "Only myself" | เปิด URL ด้วย GET ในเบราว์เซอร์ต้องเห็น `{"ok":true,...}` และตั้ง Access = Anyone |
+| ตอบ `{"ok":false,"error":"unauthorized"}` | token ไม่ตรงหรือไม่ได้ส่งมา | ตรวจ `?token=` ใน webhook และค่า `SHARED_TOKEN` |
+| ไม่มีแถวใหม่ แต่เว็บขึ้นสำเร็จ | ชีตถูกแก้โครงสร้าง/แท็บไม่ชื่อ `Reservations` | รัน `setup()` อีกครั้งหรือเปลี่ยนชื่อแท็บให้ตรง |
+| เบอร์โทรขึ้นเป็นตัวเลขไม่มี 0 | คอลัมน์ D ไม่ได้ตั้งรูปแบบข้อความ | รัน `setup()` (ตั้ง `D:D` เป็น `@`) |
+| แก้โค้ดแล้วพฤติกรรมไม่เปลี่ยน | ยังใช้ deployment version เก่า | Manage deployments → New version → Deploy |
+| ข้อความ error ใน Apps Script | ยังไม่ได้อนุญาตสิทธิ์/ยังไม่ตั้ง `SHEET_ID` | ดู Executions ในหน้า Apps Script |

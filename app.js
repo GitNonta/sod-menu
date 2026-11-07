@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.6';
+  const ASSET_VERSION = '1.0.7';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1490,12 +1490,23 @@
     let status = 'บันทึกการจองไว้ในเครื่องนี้แล้ว — ส่งข้อความให้ร้านทาง LINE เพื่อยืนยันได้เลย';
     if (cfg.webhook) {
       try {
+        /* text/plain keeps the request "simple", so the browser skips the CORS
+           preflight that an Apps Script web app cannot answer. The body is still
+           JSON, and the receiver parses it as JSON. */
         const res = await fetch(cfg.webhook, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(Object.assign({ source: 'sod-menu' }, rec)),
+          keepalive: true,
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
+        let answer = null;
+        try {
+          answer = await res.json();
+        } catch (_) {
+          /* older deployments answer with plain text; a 2xx is enough then */
+        }
+        if (answer && answer.ok === false) throw new Error(answer.error || 'receiver rejected');
         status = `ส่งคำขอถึงร้านแล้ว — รอร้านติดต่อกลับที่ ${rec.phone}`;
       } catch (err) {
         console.error('[reserve] webhook failed:', err);

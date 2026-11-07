@@ -13,8 +13,10 @@ style.css           ธีม neon dark, mobile-first (360 / 600 / 900px breakpo
 app.js              โหลด data/menu.json แล้ว render ทั้งหน้า (ไม่มีข้อมูล hard-code ใน HTML)
                     + ปุ่มสลับธีม สว่าง/มืด (จำค่าใน localStorage คีย์ `sod-theme`)
                     + ช่วงเวลาโปร ก่อน/หลังเที่ยงคืน (จำค่าใน localStorage คีย์ `sod-promo-mode`)
-data/menu.json      แหล่งข้อมูลเดียว: หมวด, เมนู, ราคา, โปรโมชัน, version
+data/menu.json      แหล่งข้อมูลเดียว: หมวด, เมนู, ราคา, โปรโมชัน, ตั้งค่าจองโต๊ะ, version
 images/             รูปสินค้า (พื้นหลังโปร่งใส) + logo.jpg + favicon.png
+reserve-webhook.gs  ตัวรับการจอง (Google Apps Script) สำหรับต่อ Google Sheet
+docs/               คู่มือติดตั้ง/ตั้งค่า (reserve-backend.md = ระบบรับจอง)
 .nojekyll           จำเป็นสำหรับ GitHub Pages (ปิด Jekyll)
 ```
 
@@ -45,6 +47,13 @@ python3 -m http.server 8123
 - `image: null` → แสดงไอคอนอิโมจิของหมวดนั้น
 - รูปสินค้าใช้ไฟล์ `.webp` (พื้นหลังโปร่งใส) ขนาดด้านยาวสุดไม่เกิน 640px
 - ฟิลด์ `note` เป็นบันทึกภายในสำหรับเจ้าของร้าน **ไม่ถูกแสดงบนเว็บ**
+
+## การจองโต๊ะ
+
+- ปุ่ม **จองโต๊ะ** บน header → ชีตฟอร์ม (ชื่อ, เบอร์, วันที่, เวลา, จำนวนคน, หมายเหตุ) ตรวจเวลาเปิดร้าน/จำนวนคนให้อัตโนมัติ
+- ค่าทั้งหมดอยู่ที่ `shop.reserve` ใน `data/menu.json`: `enabled`, `hint`, `open_time`, `close_time`, `max_party`, `max_days`, `webhook`, `line_url`, `phone`
+- ถ้าตั้ง `webhook` → ส่ง JSON เข้าระบบร้านทันที (POST `text/plain` เพื่อเลี่ยง CORS preflight); ถ้าไม่ตั้ง → บันทึกในเครื่องลูกค้า + ให้ส่ง LINE/โทรเอง
+- ตัวรับมาตรฐานคือ **Google Sheet + Apps Script** ([`reserve-webhook.gs`](reserve-webhook.gs)) — วิธีติดตั้งทีละขั้นอยู่ที่ [`docs/reserve-backend.md`](docs/reserve-backend.md)
 
 ## เปิดเว็บจริงบน GitHub Pages
 
