@@ -2665,6 +2665,7 @@ select.field__input {
 
 .jnl__bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 14px;
 }
@@ -3075,6 +3076,70 @@ select.field__input {
   margin: 10px 0 0;
   font-size: 0.76rem;
   color: var(--muted);
+}
+
+/* ── New-booking alert + desktop notification opt-in (today.html) ── */
+.jnl__alert {
+  position: relative;
+  margin: 14px 0 0;
+  padding: 12px 42px 12px 14px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+
+.jnl__alert-title {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.jnl__alert-list {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--muted-strong);
+}
+
+.jnl__alert-row strong {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.jnl__alert-x {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.jnl__notify {
+  flex: 1 1 100%;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted-strong);
+  cursor: pointer;
+}
+
+.jnl__notify[disabled] {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .plan__hint {

@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.12';
+  const ASSET_VERSION = '1.0.13';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1805,6 +1805,24 @@
     });
   }
 
+  /* ── Hidden staff door ──────────────────────────────────────
+     Five quick taps on the logo open today.html. Nothing on the page
+     points at it, so guests never stumble into the staff list. */
+  function wireStaffDoor() {
+    let taps = 0;
+    let timer = 0;
+    if (!el.brandLogo) return;
+    el.brandLogo.addEventListener('click', () => {
+      taps += 1;
+      clearTimeout(timer);
+      timer = setTimeout(() => (taps = 0), 1600);
+      if (taps < 5) return;
+      taps = 0;
+      clearTimeout(timer);
+      window.location.href = './today.html';
+    });
+  }
+
   /* ── Chrome: back-to-top ───────────────────────────────────── */
   function wireToTop() {
     let raf = 0;
@@ -1870,6 +1888,7 @@
   wireSheet();
   wireReserve();
   wirePlan();
+  wireStaffDoor();
   wireToTop();
   wireTabs();
   wireScrollSpy();

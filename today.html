@@ -18,7 +18,7 @@
       if (localStorage.getItem('sod-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
     } catch (e) {}
   </script>
-  <link rel="stylesheet" href="./style.css?v=1.1.12" />
+  <link rel="stylesheet" href="./style.css?v=1.1.13" />
 </head>
 <body class="jnl-page">
   <header class="site-header">
@@ -37,6 +37,13 @@
   <main class="wrap jnl">
     <h1 class="jnl__title">รายการจองวันนี้</h1>
 
+    <!-- pops up when the auto-refresh finds a booking that was not there before -->
+    <div class="jnl__alert" id="jnlAlert" role="alert" hidden>
+      <p class="jnl__alert-title" id="jnlAlertTitle"></p>
+      <ul class="jnl__alert-list" id="jnlAlertList"></ul>
+      <button class="jnl__alert-x" id="jnlAlertX" type="button" aria-label="ปิดการแจ้งเตือนจองใหม่">✕</button>
+    </div>
+
     <!-- no webhook yet / no token yet -->
     <p class="jnl__notice" id="jnlNotice" role="status" hidden></p>
 
@@ -53,6 +60,7 @@
     <div class="jnl__bar">
       <input class="field__input jnl__date" id="jnlDate" type="date" aria-label="เลือกวันที่" />
       <button class="jnl__refresh" id="jnlRefresh" type="button">รีเฟรช</button>
+      <button class="jnl__notify" id="jnlNotify" type="button" hidden>🔔 เปิดการแจ้งเตือนบนเครื่องนี้</button>
     </div>
 
     <p class="jnl__stats" id="jnlStats" role="status"></p>
@@ -81,6 +89,7 @@
 
   const TOKEN_KEY = 'sod-admin-token';
   const AUTO_REFRESH_MS = 60000;
+  const SEEN_KEY = 'sod-seen-bookings';
 
   const el = {
     shop: document.getElementById('jnlShop'),
@@ -101,6 +110,11 @@
     lockMsg: document.getElementById('jnlLockMsg'),
     lockList: document.getElementById('jnlLockList'),
     lockEmpty: document.getElementById('jnlLockEmpty'),
+    alert: document.getElementById('jnlAlert'),
+    alertTitle: document.getElementById('jnlAlertTitle'),
+    alertList: document.getElementById('jnlAlertList'),
+    alertX: document.getElementById('jnlAlertX'),
+    notify: document.getElementById('jnlNotify'),
   };
 
   const STATUS_CLASS = { 'รอยืนยัน': 'is-wait', 'ยืนยันแล้ว': 'is-ok', 'ยกเลิก': 'is-off' };
@@ -282,6 +296,103 @@
     }
   }
 
+  /* ── new-booking alert: the 60s refresh compares codes it has seen ── */
+  function seenStore() {
+    try {
+      const map = JSON.parse(localStorage.getItem(SEEN_KEY) || '{}');
+      return map && typeof map === 'object' ? map : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function saveSeen(map) {
+    try {
+      localStorage.setItem(SEEN_KEY, JSON.stringify(map));
+    } catch (_) {}
+  }
+
+  function showAlert(fresh, date) {
+    const title = 'จองใหม่ ' + fresh.length + ' รายการ · ' + thaiDate(date);
+    el.alertTitle.textContent = '🔔 ' + title;
+    el.alertList.innerHTML = fresh
+      .map(function (row) {
+        return (
+          '<li class="jnl__alert-row"><strong>' + escapeHTML(row.time || '--:--') + ' น.</strong> ' +
+            escapeHTML(row.name || '—') +
+            (row.party ? ' · ' + escapeHTML(String(row.party)) + ' คน' : '') +
+            (row.table ? ' · โต๊ะ ' + escapeHTML(row.table) : '') +
+          '</li>'
+        );
+      })
+      .join('');
+    el.alert.hidden = false;
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(title, {
+          body: fresh
+            .map(function (row) {
+              return (row.time || '--:--') + ' ' + (row.name || '—') + (row.table ? ' · โต๊ะ ' + row.table : '');
+            })
+            .join('\n'),
+          tag: 'sod-booking',
+        });
+      } catch (_) {}
+    }
+    if (navigator.vibrate) {
+      try {
+        navigator.vibrate([120, 60, 120]);
+      } catch (_) {}
+    }
+  }
+
+  /* remember which codes this device has shown, so a reload does not re-alert */
+  function trackNew(rows, date) {
+    const codes = rows.map(function (row) { return String(row.code || ''); }).filter(Boolean);
+    const map = seenStore();
+    const seen = Array.isArray(map[date]) ? map[date] : null;
+    map[date] = codes;
+    const otherDays = Object.keys(map).filter(function (key) { return key !== date; }).sort();
+    while (otherDays.length > 4) delete map[otherDays.shift()];
+    saveSeen(map);
+    if (!seen) return; /* first look at this day — seed silently */
+    const fresh = rows.filter(function (row) { return row.code && seen.indexOf(String(row.code)) === -1; });
+    if (fresh.length) showAlert(fresh, date);
+  }
+
+  function wireNotify() {
+    if (el.alertX) {
+      el.alertX.addEventListener('click', function () {
+        el.alert.hidden = true;
+      });
+    }
+    if (!('Notification' in window) || !el.notify) return;
+    if (Notification.permission === 'granted') {
+      el.notify.hidden = true;
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      el.notify.hidden = false;
+      el.notify.disabled = true;
+      el.notify.textContent = 'เบราว์เซอร์ปิดการแจ้งเตือนไว้';
+      return;
+    }
+    el.notify.hidden = false;
+    el.notify.addEventListener('click', async function () {
+      try {
+        const permission = await Notification.requestPermission();
+        el.notify.hidden = permission === 'granted';
+        if (permission === 'denied') {
+          el.notify.disabled = true;
+          el.notify.textContent = 'เบราว์เซอร์ปิดการแจ้งเตือนไว้';
+        }
+      } catch (_) {
+        el.notify.disabled = true;
+      }
+    });
+  }
+
   function renderStats(data) {
     const counts = { 'รอยืนยัน': 0, 'ยืนยันแล้ว': 0, 'ยกเลิก': 0 };
     (data.rows || []).forEach(function (row) {
@@ -322,6 +433,7 @@
       el.setup.hidden = true;
       el.notice.hidden = true;
       el.empty.hidden = (data.rows || []).length > 0;
+      trackNew(data.rows || [], data.date || date);
       renderRows(data.rows || []);
       renderStats(data);
       loadLocks();
@@ -342,6 +454,7 @@
 
   async function boot() {
     el.date.value = isoDate(new Date());
+    wireNotify();
     try {
       const res = await fetch('./data/menu.json?v=' + Date.now(), { cache: 'no-store' });
       const data = await res.json();
