@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.39';
+  const ASSET_VERSION = '1.0.40';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -2213,6 +2213,10 @@
   function wireReserve() {
     if (!el.reserveSheet) return;
     el.reserveOpen?.addEventListener('click', openReserve);
+    if (reserveTapPending) {
+      reserveTapPending = false;
+      openReserve();
+    }
     el.reserveX?.addEventListener('click', closeReserve);
     el.reserveScrim?.addEventListener('click', closeReserve);
     el.reserveForm?.addEventListener('submit', submitReserve);
@@ -2311,6 +2315,19 @@
       el.error.append(btn);
     }
   }
+
+  /* ปุ่ม “จองโต๊ะ” อยู่ใน HTML ตั้งแต่แรก แต่ handler ถูกผูกหลังโหลดข้อมูลเสร็จ
+     ระหว่าง 1–2 วินาทีนั้นการแตะจะเงียบสนิท — จำการแตะไว้แล้วเปิดป็อปอัปให้ทันทีที่พร้อม */
+  let reserveTapPending = false;
+  document.addEventListener(
+    'click',
+    (event) => {
+      const target = event.target instanceof Element ? event.target.closest('#reserveOpen') : null;
+      if (!target || state.data) return;
+      reserveTapPending = true;
+    },
+    true,
+  );
 
   async function boot() {
     try {
