@@ -9,6 +9,9 @@
  *   GET   ?action=locks&date=YYYY-MM-DD&token=…      โต๊ะที่ร้านล็อค (ต้อง token)
  *   POST  { action:'lock'|'unlock', token, date, tables:[], note }   (ต้อง token)
  *   POST  { action:'set-status', token, code, status }                (ต้อง token)
+ *         status='ยกเลิก' → ลบแถวนั้นออกจริง (โต๊ะว่างทันที ไม่ค้างเป็นประวัติ)
+ *   GET   ?action=config                             เวลาปิดจอง + อีเว้น (ไม่ต้อง token)
+ *   POST  { action:'save-config', token, closeTime, events:[] }        (ต้อง token)
  *   GET   ?action=linetest&token=…                   ส่งข้อความทดสอบเข้า LINE
  *   POST  body ที่มี "events" (LINE webhook)          จด groupId ลงตาราง settings
  *
@@ -38,7 +41,7 @@ const SOD_TOKEN = (Deno.env.get('SOD_TOKEN') || '').trim();
 const AUTO_CONFIRM = (Deno.env.get('AUTO_CONFIRM') || 'on').trim().toLowerCase() !== 'off';
 const BOOKING_STATUS = AUTO_CONFIRM ? STATUSES[1] : STATUSES[0];
 /* ตราประทับบิลด์ — `?action=status` ตอบค่านี้กลับไป จะรู้ทันทีว่า deploy ใหม่ขึ้นหรือยัง */
-const BUILD = '2026-11-08';
+const BUILD = '2026-11-08.2';
 
 const CORS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -80,6 +83,64 @@ async function sb(path: string, init: RequestInit = {}): Promise<SbResult> {
 }
 
 const enc = (value: string) => encodeURIComponent(value);
+
+/* ── ตาราง/อีเว้นของร้าน เก็บใน settings (key/value ที่มีอยู่แล้ว) ──
+   CLOSE_TIME = 'HH:MM' เวลาที่ปิดรับจองของ “วันนั้น” (ว่าง = รับจองตลอด)
+   EVENTS     = JSON [{ date, name, lock }] — lock:true = วันนั้นปิดการจองทั้งวัน */
+type ShopEvent = { date: string; name: string; lock: boolean };
+type ShopConfig = { closeTime: string; events: ShopEvent[] };
+
+async function settingGet(key: string): Promise<string> {
+  const res = await sb(`settings?key=eq.${enc(key)}&select=value&limit=1`);
+  const rows = Array.isArray(res.data) ? (res.data as Json[]) : [];
+  return rows.length ? String(rows[0].value ?? '') : '';
+}
+
+async function settingSet(key: string, value: string): Promise<boolean> {
+  const res = await sb('settings?on_conflict=key', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates' },
+    body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
+  });
+  return res.ok;
+}
+
+function cleanEvents(raw: unknown): ShopEvent[] {
+  const list = Array.isArray(raw) ? raw : [];
+  return list
+    .map((item) => {
+      const row = (item || {}) as Json;
+      return {
+        date: String(row.date || ''),
+        name: String(row.name || '').trim().slice(0, 80),
+        lock: row.lock !== false,
+      };
+    })
+    .filter((row) => /^\d{4}-\d{2}-\d{2}$/.test(row.date) && row.name.length > 0);
+}
+
+async function shopConfig(): Promise<ShopConfig> {
+  const [closeRaw, eventsRaw] = await Promise.all([settingGet('CLOSE_TIME'), settingGet('EVENTS')]);
+  let events: ShopEvent[] = [];
+  try {
+    events = cleanEvents(JSON.parse(eventsRaw || '[]'));
+  } catch {
+    events = [];
+  }
+  const closeTime = closeRaw.trim();
+  return { closeTime: /^\d{2}:\d{2}$/.test(closeTime) ? closeTime : '', events };
+}
+
+/** วันนั้นปิดรับจองหรือยัง — อีเว้นที่ล็อคชนะเวลาปิดจองเสมอ */
+function closureOf(date: string, cfg: ShopConfig): { closed: boolean; reason: string; event: ShopEvent | null } {
+  const event = cfg.events.find((row) => row.date === date && row.lock) || null;
+  if (event) return { closed: true, reason: 'event', event };
+  if (cfg.closeTime && date === bkkToday()) {
+    const nowHM = new Date(Date.now() + TZ_OFFSET_MS).toISOString().slice(11, 16);
+    if (nowHM >= cfg.closeTime) return { closed: true, reason: 'time', event: null };
+  }
+  return { closed: false, reason: '', event: null };
+}
 
 /* ── วันที่/เวลาแบบไทย ─────────────────────────────────────── */
 function bkkToday(): string {
@@ -178,7 +239,21 @@ async function busyOf(rawDate: unknown): Promise<Response> {
     .filter((row) => row.table);
   const locks = await locksOf(date);
   locks.forEach((row) => busy.push({ table: row.table, time: '', note: row.note, locked: true }));
-  return json({ ok: true, service: 'sod-reserve', date, busy });
+  /* ผังต้องรู้ด้วยว่าวันนั้นปิดรับจองแล้วหรือไม่ — และอีเว้นอะไร เริ่มเมื่อไร */
+  const cfg = await shopConfig();
+  const state = closureOf(date, cfg);
+  return json({
+    ok: true,
+    service: 'sod-reserve',
+    date,
+    busy,
+    closed: state.closed,
+    reason: state.reason,
+    closeTime: cfg.closeTime,
+    event: state.event,
+    events: cfg.events.filter((row) => row.date >= date).slice(0, 5),
+    now: new Date().toISOString(),
+  });
 }
 
 /* ── LINE: แจ้งเตือนจองใหม่ + จด groupId ───────────────────── */
@@ -257,7 +332,9 @@ async function captureLineTarget(raw: string): Promise<Response> {
 /* ── POST: จองใหม่ / ล็อค-ปลดล็อคโต๊ะ ─────────────────────── */
 async function handlePost(req: Request, params: URLSearchParams): Promise<Response> {
   const raw = await req.text();
-  if (raw.includes('"events"')) return await captureLineTarget(raw);
+  /* LINE webhook ไม่มีฟิลด์ action เลย — ส่วน save-config มี "events" ของร้าน
+     จึงต้องกันด้วยการดูว่ามี action มาด้วยหรือไม่ ไม่งั้น config จะถูกกินเงียบ ๆ */
+  if (raw.includes('"events"') && !raw.includes('"action"')) return await captureLineTarget(raw);
 
   let payload: Json | null = null;
   try {
@@ -320,6 +397,17 @@ async function handlePost(req: Request, params: URLSearchParams): Promise<Respon
     if (!code) return json({ ok: false, error: 'missing code' });
     const status = String(payload.status || '');
     if (!STATUSES.includes(status)) return json({ ok: false, error: 'invalid status' });
+    /* ยกเลิก = ลบแถวทิ้ง ไม่เก็บไว้เป็นสถานะค้าง (โต๊ะกลับมาว่างทันที) */
+    if (status === STATUSES[2]) {
+      const gone = await sb(`reservations?code=eq.${enc(code)}`, {
+        method: 'DELETE',
+        headers: { Prefer: 'return=representation' },
+      });
+      if (!gone.ok) return json({ ok: false, error: `db ${gone.status}` }, 502);
+      const removed = Array.isArray(gone.data) ? (gone.data as Json[]) : [];
+      if (!removed.length) return json({ ok: false, error: 'not found' }, 404);
+      return json({ ok: true, service: 'sod-reserve', code, status, deleted: true });
+    }
     const res = await sb(`reservations?code=eq.${enc(code)}`, {
       method: 'PATCH',
       headers: { Prefer: 'return=representation' },
@@ -331,7 +419,30 @@ async function handlePost(req: Request, params: URLSearchParams): Promise<Respon
     return json({ ok: true, service: 'sod-reserve', code, status });
   }
 
-  /* จองใหม่ */
+  /* เวลาปิดจอง + วันอีเว้น (ตั้งจาก today.html) */
+  if (action === 'save-config') {
+    if (!authorized(sent)) return json({ ok: false, error: 'unauthorized' }, 401);
+    const closeTime = String(payload.closeTime ?? '').trim();
+    if (closeTime && !/^\d{2}:\d{2}$/.test(closeTime)) return json({ ok: false, error: 'invalid closeTime' });
+    const events = cleanEvents(payload.events);
+    if (events.length > 60) return json({ ok: false, error: 'too many events' });
+    const savedClose = await settingSet('CLOSE_TIME', closeTime);
+    const savedEvents = await settingSet('EVENTS', JSON.stringify(events));
+    if (!savedClose || !savedEvents) return json({ ok: false, error: 'db' }, 502);
+    return json({ ok: true, service: 'sod-reserve', closeTime, events });
+  }
+
+  /* จองใหม่ — ถ้าร้านปิดรับจองของวันนั้นแล้ว ต้องปฏิเสธที่หลังบ้านด้วย
+     ไม่ใช่พึ่งแค่ผังฝั่งลูกค้า */
+  const cfg = await shopConfig();
+  const state = closureOf(String(payload.date || ''), cfg);
+  if (state.closed) {
+    const why = state.reason === 'event'
+      ? `closed — วันนี้มีอีเว้น${state.event?.name ? ` ${state.event.name}` : ''} ปิดรับจอง กรุณา walk-in หรือเลือกวันอื่น`
+      : 'closed — ปิดรับจองของวันนี้แล้ว กรุณา walk-in หรือเลือกวันอื่น';
+    return json({ ok: false, error: why });
+  }
+
   const problem = validate(payload);
   if (problem) return json({ ok: false, error: problem });
 
@@ -389,6 +500,12 @@ async function handleGet(params: URLSearchParams): Promise<Response> {
 
   /* ผังฝั่งลูกค้า: คืนแค่เลขโต๊ะ/เวลา/โน้ตของโต๊ะที่ร้านล็อค ไม่มีข้อมูลส่วนตัว */
   if (action === 'busy') return await busyOf(params.get('date'));
+
+  /* ตารางปิดจอง/อีเว้น — ไม่มีข้อมูลลูกค้า จึงไม่ต้อง token */
+  if (action === 'config') {
+    const cfg = await shopConfig();
+    return json({ ok: true, service: 'sod-reserve', closeTime: cfg.closeTime, events: cfg.events, today: bkkToday() });
+  }
 
   if (action === 'linetest') {
     if (!authorized(sent)) return json({ ok: false, error: 'unauthorized' }, 401);

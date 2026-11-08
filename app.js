@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.28';
+  const ASSET_VERSION = '1.0.29';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1269,6 +1269,9 @@
   let planLocks = new Map();
   let planBuilt = false;
   let planIndex = new Map();
+  /* the shop can close a day: a daily cut-off time, or an event that locks it */
+  let planClosed = { closed: false, reason: '', closeTime: '', event: null };
+  let planClosedTimer = 0;
 
   function reserveConfig() {
     const raw = (state.data && state.data.shop && state.data.shop.reserve) || {};
@@ -1379,6 +1382,56 @@
     return pickedTables.map((id) => planTableLabel(id));
   }
 
+  /* ── วันที่ร้านปิดรับจอง: เลยเวลาปิดจอง หรือวันนั้นมีอีเว้นที่ล็อคไว้ ── */
+  const PLAN_WALKIN = 'กรุณา walk-in หรือเลือกวันอื่น';
+
+  function planClosedHeadline() {
+    if (planClosed.reason === 'event') {
+      const name = planClosed.event && planClosed.event.name;
+      return name ? `ปิดจอง · อีเว้น ${name}` : 'ปิดจอง · มีอีเว้น';
+    }
+    return planClosed.closeTime ? `ปิดรับจองแล้ว (เลย ${planClosed.closeTime} น.)` : 'ปิดรับจองแล้ว';
+  }
+
+  /* นับถอยหลังถึงวันอีเว้น แบบเรียลไทม์ (เดินทุกวินาที) */
+  function planClosedCountdown() {
+    const event = planClosed.event;
+    if (planClosed.reason !== 'event' || !event || !event.date) return PLAN_WALKIN;
+    const target = new Date(`${event.date}T00:00:00+07:00`).getTime();
+    if (Number.isNaN(target)) return PLAN_WALKIN;
+    const left = target - Date.now();
+    if (left <= 0) return `อีเว้นเริ่มแล้ว · ${PLAN_WALKIN}`;
+    const mins = Math.floor(left / 60000);
+    const days = Math.floor(mins / 1440);
+    const hours = Math.floor((mins % 1440) / 60);
+    const minutes = mins % 60;
+    const parts = [];
+    if (days) parts.push(`${days} วัน`);
+    parts.push(`${hours} ชั่วโมง`);
+    if (!days) parts.push(`${minutes} นาที`);
+    return `อีก ${parts.join(' ')} · ${PLAN_WALKIN}`;
+  }
+
+  function renderPlanClosed() {
+    if (planClosedTimer) {
+      clearInterval(planClosedTimer);
+      planClosedTimer = 0;
+    }
+    if (el.planCanvas) el.planCanvas.classList.toggle('is-closed', planClosed.closed);
+    const box = document.getElementById('planClosed');
+    const title = document.getElementById('planClosedTitle');
+    const sub = document.getElementById('planClosedSub');
+    if (!box) return;
+    box.hidden = !planClosed.closed;
+    if (!planClosed.closed) return;
+    if (title) title.textContent = planClosedHeadline();
+    const paint = () => {
+      if (planClosed.closed && sub) sub.textContent = planClosedCountdown();
+    };
+    paint();
+    if (planClosed.reason === 'event') planClosedTimer = setInterval(paint, 1000);
+  }
+
   function buildPlan() {
     const plan = planConfig();
     if (!plan || planBuilt || !el.planCanvas) return;
@@ -1394,7 +1447,7 @@
         return `<button class="plan__spot${shape}" type="button" data-table="${escapeAttr(t.id)}" aria-label="โต๊ะ ${escapeAttr(t.label || t.id)}" aria-pressed="false" style="left:${Number(t.x)}%;top:${Number(t.y)}%;width:${w}%;height:${h}%"><span class="plan__tag" aria-hidden="true"></span></button>`;
       })
       .join('');
-    el.planCanvas.innerHTML = `<img class="plan__img" src="${escapeAttr(plan.image || './images/floorplan.jpg')}" alt="ผังโต๊ะของร้าน" loading="lazy" draggable="false" />${spots}`;
+    el.planCanvas.innerHTML = `<img class="plan__img" src="${escapeAttr(plan.image || './images/floorplan.jpg')}" alt="ผังโต๊ะของร้าน" loading="lazy" draggable="false" /><div class="plan__tint" aria-hidden="true"></div>${spots}`;
     planBuilt = true;
   }
 
@@ -1452,7 +1505,12 @@
         el.planPick.innerHTML = `เลือกแล้ว <b>${labels.length} โต๊ะ</b> · ${escapeHTML(labels.join(', '))}`;
       }
     }
-    if (el.planStatus) el.planStatus.textContent = planSummary();
+    el.planCanvas.classList.toggle('is-closed', planClosed.closed);
+    if (el.planStatus) {
+      el.planStatus.textContent = planClosed.closed
+        ? `${planClosedHeadline()} — ${PLAN_WALKIN}`
+        : planSummary();
+    }
   }
 
   async function loadPlanBusy() {
@@ -1462,6 +1520,8 @@
     if (!cfg.webhook) {
       planBusy = new Map();
       planLocks = new Map();
+      planClosed = { closed: false, reason: '', closeTime: '', event: null };
+      renderPlanClosed();
       paintPlan();
       return;
     }
@@ -1490,12 +1550,21 @@
       });
       planBusy = next;
       planLocks = locks;
+      /* ร้านอาจปิดรับจองวันที่นี้ (เลยเวลาปิดจอง หรือมีอีเว้นที่ล็อคไว้) */
+      planClosed = {
+        closed: !!(data && data.closed),
+        reason: String((data && data.reason) || ''),
+        closeTime: String((data && data.closeTime) || ''),
+        event: (data && data.event) || null,
+      };
+      if (planClosed.closed) pickedTables = [];
     } catch (err) {
       /* the map still works without occupancy — every table stays tappable */
       console.warn('[reserve] occupancy unavailable:', err);
       planBusy = prevBusy;
       planLocks = prevLocks;
     }
+    renderPlanClosed();
     paintPlan();
   }
 
@@ -1521,6 +1590,10 @@
       if (!spot) return;
       const id = spot.dataset.table;
       const table = planIndex.get(id) || { id };
+      if (planClosed.closed) {
+        toast(`${planClosedHeadline()} — ${PLAN_WALKIN}`);
+        return;
+      }
       if (planLockAt(table) !== null) {
         toast(`โต๊ะ ${planTableLabel(id)} ถูกปิดโดยร้าน — เลือกโต๊ะอื่น`);
         return;
@@ -1766,6 +1839,10 @@
 
   async function submitReserve(e) {
     e.preventDefault();
+    if (planClosed.closed) {
+      reserveError(`${planClosedHeadline()} — ${PLAN_WALKIN}`);
+      return;
+    }
     if (el.reserveSubmit.disabled) return;
     const { rec, error } = readReserveForm();
     if (!reserveError(error)) return;

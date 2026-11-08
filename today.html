@@ -18,7 +18,7 @@
       if (localStorage.getItem('sod-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
     } catch (e) {}
   </script>
-  <link rel="stylesheet" href="./style.css?v=1.1.28" />
+  <link rel="stylesheet" href="./style.css?v=1.1.29" />
 </head>
 <body class="jnl-page">
   <header class="site-header">
@@ -81,6 +81,30 @@
       <ul class="jnl__lock-list" id="jnlLockList"></ul>
       <p class="jnl__lock-empty" id="jnlLockEmpty" hidden>ยังไม่มีโต๊ะที่ล็อคในวันนี้</p>
     </section>
+
+    <!-- admin: booking cut-off time + event days the shop closes -->
+    <section class="jnl__lock" id="jnlSchedule" hidden>
+      <h2 class="jnl__lock-title">เวลาปิดจอง &amp; วันอีเว้น</h2>
+      <p class="jnl__lock-note">
+        ตั้งเวลาปิดรับจองของวันนี้ — พอเลยเวลา ผังฝั่งลูกค้าจะเป็นสีแดง “ปิดรับจองแล้ว” และกดจองไม่ได้ (walk-in เท่านั้น)
+      </p>
+      <form class="jnl__lock-form" id="jnlCloseForm">
+        <input class="field__input" id="jnlClose" type="time" aria-label="เวลาปิดรับจอง" />
+        <button class="jnl__save" id="jnlCloseBtn" type="submit">บันทึกเวลาปิดจอง</button>
+      </form>
+      <p class="jnl__lock-note">
+        วันอีเว้น: ล็อคการจองทั้งวัน — ผังจะขึ้นสีแดงพร้อมชื่ออีเว้น และนับถอยหลังว่าอีกกี่วันกี่ชั่วโมง (เดินแบบเรียลไทม์)
+      </p>
+      <form class="jnl__lock-form" id="jnlEvForm">
+        <input class="field__input" id="jnlEvDate" type="date" aria-label="วันอีเว้น" />
+        <input class="field__input" id="jnlEvName" type="text" maxlength="80" placeholder="ชื่ออีเว้น เช่น Live Acoustic" aria-label="ชื่ออีเว้น" />
+        <label class="jnl__ev-lock"><input type="checkbox" id="jnlEvLock" checked /> ล็อคการจองวันนี้</label>
+        <button class="jnl__save" id="jnlEvBtn" type="submit">บันทึกอีเว้น</button>
+      </form>
+      <p class="jnl__notice" id="jnlSchedMsg" role="status" hidden></p>
+      <ul class="jnl__lock-list" id="jnlEvList"></ul>
+      <p class="jnl__lock-empty" id="jnlEvEmpty" hidden>ยังไม่มีวันอีเว้นที่ตั้งไว้</p>
+    </section>
   </main>
 
   <script>
@@ -122,6 +146,23 @@
 
   let webhook = '';
   let loading = false;
+  /* เวลาปิดจอง + วันอีเว้น (ตั้งจากหน้านี้) */
+  let schedule = { closeTime: '', events: [] };
+
+  const sched = {
+    box: document.getElementById('jnlSchedule'),
+    msg: document.getElementById('jnlSchedMsg'),
+    closeForm: document.getElementById('jnlCloseForm'),
+    close: document.getElementById('jnlClose'),
+    closeBtn: document.getElementById('jnlCloseBtn'),
+    evForm: document.getElementById('jnlEvForm'),
+    evDate: document.getElementById('jnlEvDate'),
+    evName: document.getElementById('jnlEvName'),
+    evLock: document.getElementById('jnlEvLock'),
+    evBtn: document.getElementById('jnlEvBtn'),
+    evList: document.getElementById('jnlEvList'),
+    evEmpty: document.getElementById('jnlEvEmpty'),
+  };
 
   function escapeHTML(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
@@ -240,7 +281,7 @@
                     '<button class="jnl__act is-ok" type="button" data-code="' + escapeHTML(row.code) +
                       '" data-status="ยืนยันแล้ว"' + (row.status === 'ยืนยันแล้ว' ? ' disabled' : '') + '>ยืนยัน</button>' +
                     '<button class="jnl__act is-off" type="button" data-code="' + escapeHTML(row.code) +
-                      '" data-status="ยกเลิก"' + (row.status === 'ยกเลิก' ? ' disabled' : '') + '>ยกเลิก</button>' +
+                      '" data-status="ยกเลิก"' + (row.status === 'ยกเลิก' ? ' disabled' : '') + '>ลบ/ยกเลิก</button>' +
                   '</div>'
                 : '') +
             '</div>' +
@@ -265,7 +306,9 @@
     el.notice.hidden = true;
     try {
       const data = await lockAction('set-status', { code: code, status: status });
-      el.foot.textContent = 'อัปเดต ' + code + ' → ' + (data.status || status) + ' แล้ว';
+      el.foot.textContent = data.deleted
+        ? 'ลบการจอง ' + code + ' ออกจากระบบแล้ว (โต๊ะว่างทันที)'
+        : 'อัปเดต ' + code + ' → ' + (data.status || status) + ' แล้ว';
       load();
     } catch (err) {
       Array.prototype.forEach.call(buttons, function (item) { item.disabled = false; });
@@ -499,6 +542,7 @@
       renderRows(data.rows || []);
       renderStats(data);
       loadLocks();
+      loadSchedule();
       el.foot.textContent = 'อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น. · รีเฟรชเองทุก 1 นาที';
     } catch (err) {
       console.error('[today] load failed:', err);
@@ -511,6 +555,69 @@
     } finally {
       loading = false;
       el.refresh.disabled = false;
+    }
+  }
+
+  /* ── เวลาปิดจอง + วันอีเว้น: ร้านกำหนดเอง ผังลูกค้าจึงเปลี่ยนตาม ── */
+  function schedSay(text) {
+    if (!sched.msg) return;
+    sched.msg.hidden = !text;
+    sched.msg.textContent = text || '';
+  }
+
+  function renderSchedule() {
+    if (sched.close) sched.close.value = schedule.closeTime || '';
+    if (sched.evList) {
+      const rows = schedule.events.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+      sched.evList.innerHTML = rows
+        .map(function (ev) {
+          return (
+            '<li class="jnl__lock-row">' +
+              '<span class="jnl__lock-table">' + escapeHTML(ev.date) + '</span>' +
+              '<span class="jnl__lock-why">' + escapeHTML(ev.name || 'อีเว้น') +
+                (ev.lock === false ? ' · ไม่ล็อคจอง' : ' · ล็อคจอง') + '</span>' +
+              '<button class="jnl__unlock" type="button" data-date="' + escapeHTML(ev.date) + '">ลบ</button>' +
+            '</li>'
+          );
+        })
+        .join('');
+      Array.prototype.forEach.call(sched.evList.querySelectorAll('.jnl__unlock'), function (btn) {
+        btn.addEventListener('click', function () {
+          schedule.events = schedule.events.filter(function (ev) { return ev.date !== btn.dataset.date; });
+          saveSchedule('ลบอีเว้น ' + btn.dataset.date + ' ออกแล้ว');
+        });
+      });
+    }
+    if (sched.evEmpty) sched.evEmpty.hidden = schedule.events.length > 0;
+  }
+
+  async function loadSchedule() {
+    if (!webhook || !readToken() || !sched.box) return;
+    sched.box.hidden = false;
+    try {
+      const res = await fetch(buildURL(el.date.value || isoDate(new Date()), 'config'), { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data || data.ok === false) return;
+      schedule = { closeTime: String(data.closeTime || ''), events: (data.events || []).slice() };
+      renderSchedule();
+    } catch (err) {
+      console.warn('[today] schedule failed:', err);
+    }
+  }
+
+  async function saveSchedule(done) {
+    schedSay('');
+    try {
+      const data = await lockAction('save-config', {
+        closeTime: sched.close ? sched.close.value || '' : '',
+        events: schedule.events,
+      });
+      schedule = { closeTime: String(data.closeTime || ''), events: (data.events || []).slice() };
+      renderSchedule();
+      schedSay(done);
+    } catch (err) {
+      schedSay('บันทึกไม่สำเร็จ — ' + friendlyError(err));
     }
   }
 
@@ -575,6 +682,34 @@
         el.lockBtn.disabled = false;
       }
     });
+    sched.closeForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      const value = sched.close.value || '';
+      sched.closeBtn.disabled = true;
+      saveSchedule(value
+        ? 'ตั้งเวลาปิดรับจองของวันนี้เป็น ' + value + ' น. แล้ว — ผังจะขึ้นสีแดงหลังเวลานี้'
+        : 'ยกเลิกเวลาปิดจองแล้ว (รับจองตลอด)').then(function () {
+        sched.closeBtn.disabled = false;
+      });
+    });
+    sched.evForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      const date = sched.evDate.value;
+      const name = sched.evName.value.trim();
+      if (!date || !name) {
+        sched.evName.focus();
+        return;
+      }
+      schedule.events = schedule.events
+        .filter(function (ev) { return ev.date !== date; })
+        .concat([{ date: date, name: name, lock: sched.evLock.checked }]);
+      sched.evBtn.disabled = true;
+      saveSchedule('บันทึกอีเว้น ' + date + ' แล้ว').then(function () {
+        sched.evBtn.disabled = false;
+        sched.evName.value = '';
+      });
+    });
+
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden) load();
     });

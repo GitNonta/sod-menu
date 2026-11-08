@@ -3093,6 +3093,60 @@ select.field__input {
   border-color: #ffd166;
 }
 
+/* the whole room turns red when the shop stopped taking bookings for the day */
+.plan__tint {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: rgb(190 16 24 / 0.58);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.plan__canvas.is-closed .plan__tint {
+  opacity: 1;
+}
+
+.plan__canvas.is-closed .plan__img {
+  filter: grayscale(1) brightness(0.72);
+}
+
+.plan__canvas.is-closed .plan__spot {
+  pointer-events: none;
+}
+
+.jnl__ev-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--muted-strong);
+}
+
+.plan__closed {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid #ff2d34;
+  border-radius: var(--radius);
+  background: rgb(150 12 20 / 0.94);
+  color: #fff;
+  text-align: center;
+}
+
+.plan__closed-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.plan__closed-sub {
+  margin: 4px 0 0;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  opacity: 0.92;
+}
+
 .plan__status {
   margin: 6px 0 0;
   font-size: 0.7rem;
