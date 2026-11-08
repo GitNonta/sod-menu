@@ -18,7 +18,7 @@
       if (localStorage.getItem('sod-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
     } catch (e) {}
   </script>
-  <link rel="stylesheet" href="./style.css?v=1.1.31" />
+  <link rel="stylesheet" href="./style.css?v=1.1.32" />
 </head>
 <body class="jnl-page">
   <header class="site-header">
@@ -93,11 +93,13 @@
         <button class="jnl__save" id="jnlCloseBtn" type="submit">บันทึกเวลาปิดจอง</button>
       </form>
       <p class="jnl__lock-note">
-        วันอีเว้น: ล็อคการจองทั้งวัน — ผังจะขึ้นสีแดงพร้อมชื่ออีเว้น และนับถอยหลังว่าอีกกี่วันกี่ชั่วโมง (เดินแบบเรียลไทม์)
+        วันอีเว้น: ล็อคการจองทั้งวัน — ผังจะขึ้นสีแดงพร้อมชื่ออีเว้น และเขียนว่า “เปิดให้จองในอีก …” นับแบบเรียลไทม์<br />
+        ถ้าเป็นงาน <strong>สทาปปารตี้</strong> ให้ใส่เวลาร้านเปิด (เช่น 00:30) — เว้นว่างจะใช้ 00:30 ให้อัตโนมัติ และแก้ทีหลังได้
       </p>
       <form class="jnl__lock-form" id="jnlEvForm">
         <input class="field__input" id="jnlEvDate" type="date" aria-label="วันอีเว้น" />
-        <input class="field__input" id="jnlEvName" type="text" maxlength="80" placeholder="ชื่ออีเว้น เช่น Live Acoustic" aria-label="ชื่ออีเว้น" />
+        <input class="field__input" id="jnlEvName" type="text" maxlength="80" placeholder="ชื่ออีเว้น เช่น สทาปปารตี้" aria-label="ชื่ออีเว้น" />
+        <input class="field__input" id="jnlEvOpen" type="time" aria-label="เวลาร้านเปิดหลังงาน (ไม่บังคับ)" title="เวลาร้านเปิดหลังงาน เช่น 00:30" />
         <label class="jnl__ev-lock"><input type="checkbox" id="jnlEvLock" checked /> ล็อคการจองวันนี้</label>
         <button class="jnl__save" id="jnlEvBtn" type="submit">บันทึกอีเว้น</button>
       </form>
@@ -158,6 +160,7 @@
     evForm: document.getElementById('jnlEvForm'),
     evDate: document.getElementById('jnlEvDate'),
     evName: document.getElementById('jnlEvName'),
+    evOpen: document.getElementById('jnlEvOpen'),
     evLock: document.getElementById('jnlEvLock'),
     evBtn: document.getElementById('jnlEvBtn'),
     evList: document.getElementById('jnlEvList'),
@@ -575,6 +578,7 @@
             '<li class="jnl__lock-row">' +
               '<span class="jnl__lock-table">' + escapeHTML(ev.date) + '</span>' +
               '<span class="jnl__lock-why">' + escapeHTML(ev.name || 'อีเว้น') +
+                (ev.open ? ' · เปิด ' + escapeHTML(ev.open) + ' น.' : '') +
                 (ev.lock === false ? ' · ไม่ล็อคจอง' : ' · ล็อคจอง') + '</span>' +
               '<button class="jnl__unlock" type="button" data-date="' + escapeHTML(ev.date) + '">ลบ</button>' +
             '</li>'
@@ -702,11 +706,17 @@
       }
       schedule.events = schedule.events
         .filter(function (ev) { return ev.date !== date; })
-        .concat([{ date: date, name: name, lock: sched.evLock.checked }]);
+        .concat([{
+          date: date,
+          name: name,
+          open: sched.evOpen ? sched.evOpen.value || '' : '',
+          lock: sched.evLock.checked,
+        }]);
       sched.evBtn.disabled = true;
       saveSchedule('บันทึกอีเว้น ' + date + ' แล้ว').then(function () {
         sched.evBtn.disabled = false;
         sched.evName.value = '';
+        sched.evOpen.value = '';
       });
     });
 

@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.31';
+  const ASSET_VERSION = '1.0.32';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1393,14 +1393,24 @@
     return planClosed.closeTime ? `ปิดรับจองแล้ว (เลย ${planClosed.closeTime} น.)` : 'ปิดรับจองแล้ว';
   }
 
-  /* นับถอยหลังถึงวันอีเว้น แบบเรียลไทม์ (เดินทุกวินาที) */
+  /* จองได้อีกครั้งเมื่อวันอีเว้นจบ — ถ้าร้านตั้งเวลาเปิดหลังงาน (เช่น 00:30) ก็นับถึงเวลานั้น */
+  function planReopenAt(event) {
+    const start = Date.parse(`${event.date}T00:00:00+07:00`);
+    if (Number.isNaN(start)) return 0;
+    const nextDay = new Date(start + 86400000 + 7 * 3600000).toISOString().slice(0, 10);
+    const at = Date.parse(`${nextDay}T${event.open || '00:00'}:00+07:00`);
+    return Number.isNaN(at) ? 0 : at;
+  }
+
+  /* นับถอยหลังว่า “เปิดให้จองอีกครั้ง” เมื่อไร แบบเรียลไทม์ (เดินทุกวินาที) */
   function planClosedCountdown() {
     const event = planClosed.event;
     if (planClosed.reason !== 'event' || !event || !event.date) return PLAN_WALKIN;
-    const target = new Date(`${event.date}T00:00:00+07:00`).getTime();
-    if (Number.isNaN(target)) return PLAN_WALKIN;
+    const openLine = event.open ? ` · ร้านเปิด ${event.open} น.` : '';
+    const target = planReopenAt(event);
+    if (!target) return `${PLAN_WALKIN}${openLine}`;
     const left = target - Date.now();
-    if (left <= 0) return `อีเว้นเริ่มแล้ว · ${PLAN_WALKIN}`;
+    if (left <= 0) return `เปิดให้จองแล้ว${openLine}`;
     const mins = Math.floor(left / 60000);
     const days = Math.floor(mins / 1440);
     const hours = Math.floor((mins % 1440) / 60);
@@ -1409,7 +1419,7 @@
     if (days) parts.push(`${days} วัน`);
     parts.push(`${hours} ชั่วโมง`);
     if (!days) parts.push(`${minutes} นาที`);
-    return `อีก ${parts.join(' ')} · ${PLAN_WALKIN}`;
+    return `เปิดให้จองในอีก ${parts.join(' ')}${openLine}`;
   }
 
   function renderPlanClosed() {

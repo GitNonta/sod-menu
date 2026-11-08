@@ -41,7 +41,7 @@ const SOD_TOKEN = (Deno.env.get('SOD_TOKEN') || '').trim();
 const AUTO_CONFIRM = (Deno.env.get('AUTO_CONFIRM') || 'on').trim().toLowerCase() !== 'off';
 const BOOKING_STATUS = AUTO_CONFIRM ? STATUSES[1] : STATUSES[0];
 /* ตราประทับบิลด์ — `?action=status` ตอบค่านี้กลับไป จะรู้ทันทีว่า deploy ใหม่ขึ้นหรือยัง */
-const BUILD = '2026-11-08.3';
+const BUILD = '2026-11-08.4';
 
 const CORS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -86,8 +86,9 @@ const enc = (value: string) => encodeURIComponent(value);
 
 /* ── ตาราง/อีเว้นของร้าน เก็บใน settings (key/value ที่มีอยู่แล้ว) ──
    CLOSE_TIME = 'HH:MM' เวลาปิดรับจอง *ทุกวัน* (ไม่มีแถว = 20:00, ค่าว่าง = รับจองตลอด)
-   EVENTS     = JSON [{ date, name, lock }] — lock:true = วันนั้นปิดการจองทั้งวัน */
-type ShopEvent = { date: string; name: string; lock: boolean };
+   EVENTS     = JSON [{ date, name, open, lock }] — lock:true = วันนั้นปิดการจองทั้งวัน
+                open = เวลาร้านเปิดหลังงาน (งานสทาปปารตี้ = 00:30) */
+type ShopEvent = { date: string; name: string; lock: boolean; open: string };
 type ShopConfig = { closeTime: string; events: ShopEvent[] };
 
 /** ร้านปิดรับจองทุกวันสองทุ่ม จนกว่าจะแก้ใน today.html */
@@ -109,14 +110,23 @@ async function settingSet(key: string, value: string): Promise<boolean> {
   return res.ok;
 }
 
+/** งานสทาปปารตี้ ร้านเปิดหลังงานเวลา 00:30 (แก้เวลาได้ใน today.html) */
+const STAFF_PARTY_OPEN = '00:30';
+const isStaffParty = (name: string) => /สทาป|สตาฟ|staff/i.test(name);
+
 function cleanEvents(raw: unknown): ShopEvent[] {
   const list = Array.isArray(raw) ? raw : [];
   return list
     .map((item) => {
       const row = (item || {}) as Json;
+      const name = String(row.name || '').trim().slice(0, 80);
+      const openRaw = String(row.open || '').trim();
+      /* ไม่ระบุเวลาเปิดร้าน + ชื่องานเป็นสทาปปารตี้ → ใช้ 00:30 ให้อัตโนมัติ */
+      const open = /^\d{2}:\d{2}$/.test(openRaw) ? openRaw : (isStaffParty(name) ? STAFF_PARTY_OPEN : '');
       return {
         date: String(row.date || ''),
-        name: String(row.name || '').trim().slice(0, 80),
+        name,
+        open,
         lock: row.lock !== false,
       };
     })
@@ -445,8 +455,8 @@ async function handlePost(req: Request, params: URLSearchParams): Promise<Respon
   const state = closureOf(String(payload.date || ''), cfg);
   if (state.closed) {
     const why = state.reason === 'event'
-      ? `closed — วันนี้มีอีเว้น${state.event?.name ? ` ${state.event.name}` : ''} ปิดรับจอง กรุณา walk-in หรือเลือกวันอื่น`
-      : 'closed — ปิดรับจองของวันนี้แล้ว กรุณา walk-in หรือเลือกวันอื่น';
+      ? `closed — วันนี้มีอีเว้น${state.event?.name ? ` ${state.event.name}` : ''} ปิดรับจอง${state.event?.open ? ` ร้านเปิด ${state.event.open} น.` : ''} กรุณา walk-in หรือเลือกวันอื่น`
+      : `closed — ปิดรับจองของวันนี้แล้ว${cfg.closeTime ? ` (ปิด ${cfg.closeTime} น.)` : ''} กรุณา walk-in หรือเลือกวันอื่น`;
     return json({ ok: false, error: why });
   }
 
