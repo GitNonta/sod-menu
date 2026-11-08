@@ -17,7 +17,8 @@ data/menu.json      แหล่งข้อมูลเดียว: หมว�
 today.html          หน้ารายการจองของวันสำหรับพนักงาน (อ่านจาก Google Sheet ผ่าน Apps Script + token)
 images/             รูปสินค้า (พื้นหลังโปร่งใส) + logo.jpg + favicon.png + floorplan.jpg (ผังโต๊ะ)
 reserve-webhook.gs  ตัวรับการจอง (Google Apps Script) สำหรับต่อ Google Sheet
-docs/               คู่มือติดตั้ง/ตั้งค่า (reserve-backend.md = ระบบรับจอง)
+supabase/           ทางเลือกแทน Apps Script: schema.sql + functions/sod-reserve/ (Edge Function)
+docs/               คู่มือติดตั้ง/ตั้งค่า (reserve-backend.md = ระบบรับจอง, supabase-backend.md = ทางเลือกบน Supabase)
 .nojekyll           จำเป็นสำหรับ GitHub Pages (ปิด Jekyll)
 ```
 
@@ -56,6 +57,7 @@ python3 -m http.server 8123
 - ถ้าตั้ง `webhook` → ส่ง JSON เข้าระบบร้านทันที (POST `text/plain` เพื่อเลี่ยง CORS preflight); ถ้าไม่ตั้ง → บันทึกในเครื่องลูกค้า + ให้ส่ง LINE/โทรเอง
 - ตั้งค่าผังโต๊ะที่ `shop.reserve.plan` (รูป + พิกัดโต๊ะเป็น % ของรูป) — ผู้ใช้กดโต๊ะบนผังเพื่อจอง, โต๊ะที่ถูกจองแล้วจะถูกระบายจาก `?action=busy` ของ Apps Script
 - ตัวรับมาตรฐานคือ **Google Sheet + Apps Script** ([`reserve-webhook.gs`](reserve-webhook.gs)) — วิธีติดตั้งทีละขั้นอยู่ที่ [`docs/reserve-backend.md`](docs/reserve-backend.md)
+- ทางเลือกแทน Apps Script: **Supabase (Postgres + Edge Function)** — [`supabase/`](supabase/) พร้อมคู่มือ [`docs/supabase-backend.md`](docs/supabase-backend.md), สัญญา JSON เดียวกันจึงไม่ต้องแก้ `app.js`/`today.html`
 - ค่าที่ต้องใส่ทั้งหมด (Script Properties, `shop.reserve`, LINE, เช็กลิสต์) อยู่ที่ [`docs/setup-values.md`](docs/setup-values.md)
 - พนักงานดูรายการจองของวันที่ **`today.html`** (อ่านอย่างเดียว, ต้องกรอก `SHARED_TOKEN` ครั้งแรก, รีเฟรชเองทุก 60 วิ) — รายละเอียดอยู่ที่คู่มือข้อ 6
 

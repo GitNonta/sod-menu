@@ -4,6 +4,9 @@
 [`reserve-backend.md`](reserve-backend.md) (คู่มือติดตั้งแบบเล่าเรื่อง) และโค้ด [`reserve-webhook.gs`](../reserve-webhook.gs)
 
 > อ่านไฟล์นี้แล้วทำตามช่อง **“ค่าที่ใส่”** ได้เลย ไม่ต้องเดา
+>
+> **ใช้ Supabase แทน Apps Script?** ค่าที่ต้องใส่ต่างกัน — ดู [`supabase-backend.md`](supabase-backend.md)
+> (secrets มี 3 ตัว: `SOD_TOKEN`, `LINE_CHANNEL_TOKEN`, `LINE_TO`; ไม่มี `SHEET_ID`)
 
 ---
 

@@ -5,6 +5,7 @@
 (ฟรี ไม่ต้องมีเซิร์ฟเวอร์ ไม่ต้องมีบัตรเครดิต) ใช้โค้ดที่ [`reserve-webhook.gs`](../reserve-webhook.gs)
 
 > **อยากได้ตารางค่าที่ต้องใส่ทั้งหมดพร้อมตัวอย่างจริง** → [`setup-values.md`](setup-values.md)
+> **ไม่อยากใช้ Apps Script? ใช้ Supabase แทนได้ โดยไม่ต้องแก้หน้าเว็บ** → [`supabase-backend.md`](supabase-backend.md)
 > (Script Properties 4 ตัว, ค่าใน `data/menu.json`, ค่าฝั่ง LINE, คำสั่ง curl ทดสอบ, เช็กลิสต์ก่อนเปิดใช้)
 
 ```
