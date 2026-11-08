@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.36';
+  const ASSET_VERSION = '1.0.37';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -101,6 +101,7 @@
     reserveSlipImg: $('reserveSlipImg'),
     reserveSlipSend: $('reserveSlipSend'),
     reserveSlipMsg: $('reserveSlipMsg'),
+    reserveHold: $('reserveHold'),
     reserveName: $('rsvName'),
     reservePhone: $('rsvPhone'),
     reserveDate: $('rsvDate'),
@@ -1469,11 +1470,15 @@
       return;
     }
     const unit = planFee.per === 'table' ? 'ต่อโต๊ะ' : planFee.per === 'booking' ? 'ต่อการจอง' : 'ต่อคน';
+    /* เลือกหลายโต๊ะ → บอกยอดรวมทันที ไม่ต้องรอกดจอง */
+    const picked = planFee.per === 'table' && pickedTables.length > 1
+      ? ` · ${pickedTables.length} โต๊ะ รวม ฿${reserveDueTotal().toLocaleString('th-TH')}`
+      : '';
     el.planFee.hidden = false;
     el.planFee.textContent =
-      `${planFee.label || 'วันนี้'} มีค่าบริการจอง ฿${planFee.amount} ${unit}` +
+      `${planFee.label || 'วันนี้'} มีค่าบริการจอง ฿${planFee.amount} ${unit}${picked}` +
       (planFee.pay ? ` · โอนที่ ${planFee.pay}` : '') +
-      ' · โอนแล้วรอร้านยืนยัน';
+      ` · ชำระภายใน ${planFee.holdMinutes || 15} นาทีหลังจอง`;
   }
 
   function renderPlanClosed() {
@@ -1641,6 +1646,9 @@
       ? pickedTables.filter((t) => t !== id)
       : pickedTables.concat(id);
     paintPlan();
+    /* คิดค่าบริการต่อโต๊ะใหม่ทุกครั้งที่แตะเลือก/ยกเลิกโต๊ะ */
+    renderPlanFee();
+    updateReserveSubmit();
     if (first && pickedTables.length && el.reserveForm) {
       const panel = el.reserveSheet.querySelector('.sheet__panel');
       if (panel) {
@@ -1856,6 +1864,7 @@
       el.reservePay.hidden = !due;
       if (due) {
         resetSlipUI();
+        startHoldTimer(fee);
         /* หน้าชำระเงินเต็มรูปแบบ: ยอด + ช่องทางโอน + แนบสลิป (pay.html) */
         if (el.reservePayLink) el.reservePayLink.href = `./pay.html?code=${encodeURIComponent(rec.code)}`;
         el.reservePayAmount.textContent = `฿${due.toLocaleString('th-TH')}`;
@@ -1914,6 +1923,7 @@
 
   function resetReserveForm() {
     stopReserveReturn();
+    stopHoldTimer();
     el.reserveDone.hidden = true;
     el.reserveForm.hidden = false;
     el.reserveErr.hidden = true;
@@ -1965,6 +1975,9 @@
         if (answer && answer.ok === false) throw new Error(answer.error || 'receiver rejected');
         if (answer && answer.fee && Number(answer.fee.total) > 0) {
           fee = answer.fee;
+          /* เวลาถือโต๊ะ 15 นาที — เอาไปนับถอยหลังในป็อปอัป */
+          fee.expiresAt = answer.expiresAt || '';
+          fee.holdMinutes = Number(answer.holdMinutes) || 15;
           status = `รอชำระค่าบริการ ฿${Number(answer.fee.total).toLocaleString('th-TH')} — ชำระเงินและแนบสลิปด้านล่างเพื่อจองให้สำเร็จ`;
         } else {
           status = `ส่งคำขอถึงร้านแล้ว — รอร้านติดต่อกลับที่ ${rec.phone}`;
@@ -2005,6 +2018,45 @@
       toast('คัดลอกไม่สำเร็จ — เลือกข้อความด้วยตัวเอง');
     }
     area.remove();
+  }
+
+  /* ── นับถอยหลัง 15 นาที: ชำระไม่ทัน = ระบบคืนโต๊ะ ── */
+  let holdTimer = 0;
+
+  function stopHoldTimer() {
+    if (holdTimer) clearInterval(holdTimer);
+    holdTimer = 0;
+  }
+
+  function startHoldTimer(fee) {
+    stopHoldTimer();
+    if (!el.reserveHold) return;
+    const until = fee && fee.expiresAt ? Date.parse(fee.expiresAt) : 0;
+    if (!until) {
+      el.reserveHold.hidden = true;
+      return;
+    }
+    const minutes = Number(fee.holdMinutes) || 15;
+    const paint = () => {
+      const left = until - Date.now();
+      if (left <= 0) {
+        stopHoldTimer();
+        el.reserveHold.hidden = false;
+        el.reserveHold.classList.add('is-over');
+        el.reserveHold.textContent = `หมดเวลา ${minutes} นาที — การจองนี้ถูกยกเลิกและคืนโต๊ะแล้ว กรุณาจองใหม่`;
+        if (el.reserveSlipSend) el.reserveSlipSend.hidden = true;
+        if (el.reserveStatus) el.reserveStatus.textContent = 'การจองถูกยกเลิก (ไม่ได้ชำระภายใน 15 นาที)';
+        if (el.reserveDoneTitle) el.reserveDoneTitle.textContent = 'หมดเวลาชำระเงิน';
+        return;
+      }
+      const mins = Math.floor(left / 60000);
+      const secs = Math.floor((left % 60000) / 1000);
+      el.reserveHold.hidden = false;
+      el.reserveHold.classList.remove('is-over');
+      el.reserveHold.textContent = `ต้องชำระเงินให้เสร็จใน ${mins}:${pad2(secs)} น. ไม่งั้นระบบคืนโต๊ะ · บัตรจองจะออกหลังร้านตรวจสลิป`;
+    };
+    paint();
+    holdTimer = setInterval(paint, 1000);
   }
 
   /* ── แนบสลิปในป็อปอัปจอง (ไม่ต้องออกไปหน้าอื่น) ── */
@@ -2087,6 +2139,7 @@
         el.reserveSlipSend.textContent = 'ส่งสลิปให้ร้านยืนยัน';
       }
       slipSay('ส่งสลิปไม่สำเร็จ — ' + String((err && err.message) || err) + ' ลองอีกครั้งหรือส่งทาง LINE', true);
+      if (el.reserveSlipSend && /หมดเวลา/.test(String((err && err.message) || ''))) el.reserveSlipSend.hidden = true;
     }
   }
 

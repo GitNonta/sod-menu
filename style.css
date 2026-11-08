@@ -3502,3 +3502,21 @@ select.field__input {
   font-size: 0.8rem;
   color: #b7a9a0;
 }
+
+/* ── นับถอยหลัง 15 นาทีในขั้นชำระเงิน (ป็อปอัปจอง) ── */
+.reserve__hold {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #f0b45a;
+  background: rgba(240, 180, 90, 0.1);
+  border: 1px solid rgba(240, 180, 90, 0.35);
+}
+
+.reserve__hold.is-over {
+  color: #f07474;
+  background: rgba(240, 116, 116, 0.1);
+  border-color: rgba(240, 116, 116, 0.4);
+}

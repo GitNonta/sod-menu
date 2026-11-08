@@ -31,7 +31,7 @@
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;900&display=swap" /></noscript>
   <!-- bump the ?v= stamp whenever style.css or app.js changes: GitHub Pages
        caches both for 10 minutes, so a returning visitor would keep the old design -->
-  <link rel="stylesheet" href="./style.css?v=1.1.36" />
+  <link rel="stylesheet" href="./style.css?v=1.1.37" />
 </head>
 <body>
   <!-- ── Intro animation (skippable) ───────────────────────────── -->
@@ -289,6 +289,7 @@
           <p class="reserve__pay-title">ชำระค่าบริการการจอง</p>
           <p class="reserve__pay-amount" id="reservePayAmount">฿0</p>
           <p class="reserve__pay-how" id="reservePayHow"></p>
+          <p class="reserve__hold" id="reserveHold" role="status" hidden></p>
           <!-- แนบสลิปในป็อปอัปเดียวกัน ไม่ต้องออกไปหน้าอื่น -->
           <label class="reserve__slip-drop" id="reserveSlipDrop">
             <b>แนบสลิปการโอน</b>
@@ -316,6 +317,6 @@
   <button class="to-top" id="toTop" type="button" aria-label="กลับขึ้นด้านบน" hidden>↑</button>
   <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
 
-  <script src="./app.js?v=1.1.36" defer></script>
+  <script src="./app.js?v=1.1.37" defer></script>
 </body>
 </html>

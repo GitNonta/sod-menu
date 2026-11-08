@@ -46,7 +46,7 @@ const SOD_TOKEN = (Deno.env.get('SOD_TOKEN') || '').trim();
 const AUTO_CONFIRM = (Deno.env.get('AUTO_CONFIRM') || 'on').trim().toLowerCase() !== 'off';
 const BOOKING_STATUS = AUTO_CONFIRM ? STATUSES[1] : STATUSES[0];
 /* ตราประทับบิลด์ — `?action=status` ตอบค่านี้กลับไป จะรู้ทันทีว่า deploy ใหม่ขึ้นหรือยัง */
-const BUILD = '2026-11-08.7';
+const BUILD = '2026-11-08.8';
 
 /* สลิปโอนเงิน: เก็บใน Storage bucket ส่วนตัว — อ่านได้เฉพาะผ่านฟังก์ชันนี้ (ต้อง token ร้าน) */
 const SLIP_BUCKET = 'slips';
@@ -54,6 +54,10 @@ const SLIP_PENDING = 'รอตรวจ';
 const SLIP_OK = 'อนุมัติ';
 const SLIP_NO = 'ไม่ผ่าน';
 const SLIP_MAX_BYTES = 2000000;
+
+/** ใบจองที่มีค่าบริการต้องชำระภายใน 15 นาที ไม่งั้นระบบคืนโต๊ะอัตโนมัติ */
+const HOLD_MINUTES = 15;
+const HOLD_MS = HOLD_MINUTES * 60000;
 
 const CORS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -299,11 +303,22 @@ async function locksOf(date: string): Promise<LockRow[]> {
   }));
 }
 
+/** คืนโต๊ะของใบที่เลยเวลาชำระ (15 นาที) — ลบทิ้งก่อนอ่านรายการ/ผังทุกครั้ง */
+async function purgeExpired(): Promise<void> {
+  const nowIso = new Date().toISOString();
+  const res = await sb(`reservations?paid=eq.false&fee=gt.0&expires_at=lt.${enc(nowIso)}`, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=minimal' },
+  });
+  if (!res.ok) console.warn('purge expired holds failed', res.status, res.data);
+}
+
 async function listOf(rawDate: unknown): Promise<Response> {
+  await purgeExpired();
   const date = dayStr(rawDate);
   const res = await sb(
     `reservations?date=eq.${enc(date)}` +
-      `&select=code,name,phone,date,time,party,note,status,table_label,created_at,fee,paid,slip,slip_status&order=time.asc`,
+      `&select=code,name,phone,date,time,party,note,status,table_label,created_at,fee,paid,slip,slip_status,expires_at&order=time.asc`,
   );
   if (!res.ok) return json({ ok: false, error: `db ${res.status}` }, 502);
   const rows = (Array.isArray(res.data) ? (res.data as Json[]) : []).map((row) => ({
@@ -323,12 +338,14 @@ async function listOf(rawDate: unknown): Promise<Response> {
     /* มีสลิปแนบมาแล้วหรือยัง + ผลตรวจ ('', 'รอตรวจ', 'อนุมัติ', 'ไม่ผ่าน') */
     slip: String(row.slip || '').length > 0,
     slipStatus: String(row.slip_status || ''),
+    expiresAt: String(row.expires_at || ''),
   }));
   const people = rows.reduce((sum, r) => sum + (r.party || 0), 0);
   return json({ ok: true, service: 'sod-reserve', date, count: rows.length, people, rows });
 }
 
 async function busyOf(rawDate: unknown): Promise<Response> {
+  await purgeExpired();
   const date = dayStr(rawDate);
   const res = await sb(
     `reservations?date=eq.${enc(date)}&status=neq.${enc(STATUSES[2])}` +
@@ -371,13 +388,16 @@ async function orderOf(rawCode: unknown): Promise<Response> {
   if (!code) return json({ ok: false, error: 'missing code' });
   const res = await sb(
     `reservations?code=eq.${enc(code)}` +
-      `&select=code,name,date,time,party,table_label,fee,paid,status,slip,slip_status&limit=1`,
+      `&select=code,name,date,time,party,table_label,fee,paid,status,slip,slip_status,expires_at&limit=1`,
   );
   if (!res.ok) return json({ ok: false, error: `db ${res.status}` }, 502);
   const rows = Array.isArray(res.data) ? (res.data as Json[]) : [];
   if (!rows.length) return json({ ok: false, error: 'not found' }, 404);
   const row = rows[0];
   const cfg = await shopConfig();
+  const paid = row.paid === true;
+  const holdUntil = String(row.expires_at || '');
+  const expired = !paid && holdUntil !== '' && Date.parse(holdUntil) < Date.now();
   return json({
     ok: true,
     service: 'sod-reserve',
@@ -389,7 +409,11 @@ async function orderOf(rawCode: unknown): Promise<Response> {
       party: Number(row.party) || 0,
       table: String(row.table_label || '').toUpperCase(),
       total: Number(row.fee) || 0,
-      paid: row.paid === true,
+      paid,
+      /* เวลาที่เหลือในการถือโต๊ะ (15 นาที) — หน้าเว็บเอาไปนับถอยหลัง */
+      expiresAt: holdUntil,
+      expired,
+      holdMinutes: holdUntil !== '' && !paid ? HOLD_MINUTES : 0,
       status: String(row.status || STATUSES[0]),
       slip: String(row.slip || '').length > 0,
       slipStatus: String(row.slip_status || ''),
@@ -444,11 +468,21 @@ async function submitSlip(payload: Json): Promise<Response> {
   if (!code) return json({ ok: false, error: 'missing code' });
   const bytes = decodeImage(payload.image);
   if (!bytes) return json({ ok: false, error: 'รูปใหญ่เกินไปหรืออ่านไม่ได้ — ลองรู้อื่น' });
-  const found = await sb(`reservations?code=eq.${enc(code)}&select=code,paid&limit=1`);
+  const found = await sb(`reservations?code=eq.${enc(code)}&select=code,paid,expires_at&limit=1`);
   if (!found.ok) return json({ ok: false, error: `db ${found.status}` }, 502);
   const rows = Array.isArray(found.data) ? (found.data as Json[]) : [];
   if (!rows.length) return json({ ok: false, error: 'not found' }, 404);
   if (rows[0].paid === true) return json({ ok: true, service: 'sod-reserve', code, already: true });
+  /* เลยเวลา 15 นาทีแล้ว = คืนโต๊ะและไม่รับสลิปอีก */
+  const until = rows[0].expires_at ? Date.parse(String(rows[0].expires_at)) : 0;
+  if (until && Date.now() > until) {
+    await sb(`reservations?code=eq.${enc(code)}`, { method: 'DELETE' });
+    return json({
+      ok: false,
+      expired: true,
+      error: `หมดเวลาชำระเงิน (${HOLD_MINUTES} นาที) — การจองนี้ถูกยกเลิกและคืนโต๊ะแล้ว กรุณาจองใหม่`,
+    });
+  }
   const path = slipPathOf(code);
   if (!(await storagePut(path, bytes))) return json({ ok: false, error: 'อัปโหลดสลิปไม่สำเร็จ' }, 502);
   const saved = await sb(`reservations?code=eq.${enc(code)}`, {
@@ -732,6 +766,8 @@ async function handlePost(req: Request, params: URLSearchParams): Promise<Respon
         ? feeState.amount * tableCount
         : feeState.amount)
     : 0;
+  /* ถือโต๊ะไว้ 15 นาที ถ้ายังไม่ชำระเงินระบบจะคืนโต๊ะอัตโนมัติ */
+  const holdUntil = feeTotal > 0 ? new Date(Date.now() + HOLD_MS).toISOString() : null;
   const row = {
     code,
     name: String(payload.name).trim().slice(0, 60),
@@ -744,6 +780,7 @@ async function handlePost(req: Request, params: URLSearchParams): Promise<Respon
     table_label: String(payload.table || '').toUpperCase().slice(0, 40),
     fee: feeTotal,
     paid: feeTotal <= 0,
+    expires_at: holdUntil,
   };
 
   const res = await sb('reservations?on_conflict=code', {
@@ -778,6 +815,9 @@ async function handlePost(req: Request, params: URLSearchParams): Promise<Respon
     status: row.status,
     row: 1,
     fee: feeTotal > 0 ? { ...feeState, total: feeTotal } : null,
+    /* เวลาที่ต้องชำระให้เสร็จ (15 นาที) */
+    expiresAt: holdUntil || '',
+    holdMinutes: feeTotal > 0 ? HOLD_MINUTES : 0,
   });
 }
 

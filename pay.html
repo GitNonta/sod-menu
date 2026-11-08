@@ -84,6 +84,21 @@
     background: #14100f; color: var(--ink); font: inherit; font-size: .95rem; letter-spacing: .08em; text-transform: uppercase;
   }
   .codebox button { padding: 12px 16px; border-radius: 12px; border: 0; background: var(--gold); color: #241a0d; font: inherit; font-weight: 700; }
+  .hold {
+    margin: 10px 0 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: .84rem;
+    color: var(--warn);
+    background: rgba(240, 180, 90, .1);
+    border: 1px solid rgba(240, 180, 90, .35);
+  }
+  .hold.is-over { color: var(--bad); background: rgba(240, 116, 116, .1); border-color: rgba(240, 116, 116, .4); }
+  .ticket { text-align: center; background: linear-gradient(180deg, #1d1719, #14100f); border-color: rgba(216, 178, 106, .45); }
+  .ticket__brand { margin: 0; font-size: .78rem; letter-spacing: .16em; color: var(--gold); }
+  .ticket__code { margin: 6px 0 2px; font-size: 1.7rem; font-weight: 800; letter-spacing: .12em; }
+  .ticket__line { margin: 0; font-size: .86rem; color: var(--dim); }
+  .ticket__coupon { margin: 12px 0 0; font-size: .82rem; color: var(--gold); border-top: 1px dashed rgba(216, 178, 106, .35); padding-top: 10px; }
   .foot { margin-top: 18px; text-align: center; font-size: .78rem; color: var(--dim); }
   .foot a { color: var(--gold); }
   [hidden] { display: none !important; }
@@ -125,6 +140,7 @@
       </div>
       <p class="payhow" id="billHow">รอข้อมูลช่องทางชำระเงินจากร้าน</p>
       <p class="coupon" id="billNote" hidden></p>
+      <p class="hold" id="billHold" role="status" hidden></p>
       <button class="copy" id="billCopy" type="button">คัดลอกข้อมูลการโอน</button>
       <p class="note">โอนแล้วแนบสลิปด้านล่าง ร้านจะยืนยันการจองให้หลังตรวจสอบ</p>
     </section>
@@ -142,6 +158,15 @@
       <button class="go" id="slipSend" type="button" disabled>ส่งสลิปให้ร้านตรวจ</button>
       <p class="msg" id="slipMsg" hidden></p>
       <p class="note">รูปสลิปใช้ตรวจการโอนเท่านั้น ร้านเห็นได้คนเดียว</p>
+    </section>
+
+    <!-- บัตรจอง: ออกให้เมื่อชำระเงินสำเร็จเท่านั้น -->
+    <section class="card ticket" id="ticket" hidden>
+      <p class="ticket__brand">บัตรจอง · SOD! signature</p>
+      <p class="ticket__code" id="ticketCode">SOD-XXXXX</p>
+      <p class="ticket__line" id="ticketLine">—</p>
+      <p class="ticket__coupon" id="ticketCoupon" hidden></p>
+      <p class="note">แสดงบัตรนี้ (หรือแจ้งรหัส) ให้พนักงานที่หน้าร้าน</p>
     </section>
 
     <p class="foot">
@@ -186,8 +211,58 @@
     slipPreviewImg: $('slipPreviewImg'),
     slipSend: $('slipSend'),
     slipMsg: $('slipMsg'),
-    payShop: $('payShop')
+    payShop: $('payShop'),
+    billHold: $('billHold'),
+    ticket: $('ticket'),
+    ticketCode: $('ticketCode'),
+    ticketLine: $('ticketLine'),
+    ticketCoupon: $('ticketCoupon')
   };
+
+  var holdTimer = 0;
+
+  function stopHold() {
+    if (holdTimer) clearInterval(holdTimer);
+    holdTimer = 0;
+  }
+
+  /* นับถอยหลัง 15 นาที: ชำระไม่ทัน = ระบบคืนโต๊ะ */
+  function startHold() {
+    stopHold();
+    if (!el.billHold) return;
+    var until = order && order.expiresAt ? Date.parse(order.expiresAt) : 0;
+    if (!until) { el.billHold.hidden = true; return; }
+    var paint = function () {
+      var left = until - Date.now();
+      if (left <= 0) {
+        stopHold();
+        el.billHold.hidden = false;
+        el.billHold.className = 'hold is-over';
+        el.billHold.textContent = 'หมดเวลาชำระเงินแล้ว — การจองนี้ถูกยกเลิกและคืนโต๊ะ กรุณาจองใหม่';
+        el.slipBox.hidden = true;
+        setBadge('หมดเวลาชำระ · ยกเลิก', 'bad');
+        return;
+      }
+      var mins = Math.floor(left / 60000);
+      var secs = Math.floor((left % 60000) / 1000);
+      el.billHold.hidden = false;
+      el.billHold.className = 'hold';
+      el.billHold.textContent = 'ต้องชำระให้เสร็จใน ' + mins + ':' + (secs < 10 ? '0' + secs : secs) +
+        ' น. ไม่งั้นระบบคืนโต๊ะ · บัตรจองจะออกหลังร้านตรวจสลิป';
+    };
+    paint();
+    holdTimer = setInterval(paint, 1000);
+  }
+
+  function showTicket() {
+    if (!el.ticket || !order) return;
+    el.ticket.hidden = false;
+    el.ticketCode.textContent = order.code;
+    el.ticketLine.textContent = thaiDate(order.date) + ' · ' + (order.time || '--:--') + ' น. · ' +
+      (order.table ? 'โต๊ะ ' + order.table : 'ยังไม่ระบุโต๊ะ') + ' · ' + (order.party || 0) + ' คน';
+    el.ticketCoupon.hidden = !order.note;
+    el.ticketCoupon.textContent = order.note || '';
+  }
 
   var THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
   var THAI_DAYS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
@@ -259,8 +334,23 @@
       setBadge('ชำระแล้ว · ยืนยันการจอง', 'paid');
       el.billAmountLabel.textContent = 'ชำระเรียบร้อย';
       el.slipBox.hidden = true;
+      if (el.billHold) el.billHold.hidden = true;
+      stopHold();
+      showTicket();
       return;
     }
+    if (order.expired) {
+      setBadge('หมดเวลาชำระ · ยกเลิกแล้ว', 'bad');
+      el.slipBox.hidden = true;
+      if (el.billHold) {
+        el.billHold.hidden = false;
+        el.billHold.className = 'hold is-over';
+        el.billHold.textContent = 'เลยเวลา ' + (order.holdMinutes || 15) + ' นาที — การจองนี้ถูกยกเลิกและคืนโต๊ะแล้ว กรุณาจองใหม่';
+      }
+      stopHold();
+      return;
+    }
+    startHold();
     if (order.slipStatus === 'รอตรวจ') {
       setBadge('รอตรวจสลิป', 'wait');
       el.slipBox.hidden = false;
