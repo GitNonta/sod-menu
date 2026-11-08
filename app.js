@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.34';
+  const ASSET_VERSION = '1.0.35';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -93,6 +93,14 @@
     reservePayHow: $('reservePayHow'),
     reservePayCopy: $('reservePayCopy'),
     reservePayLink: $('reservePayLink'),
+    reserveDoneTitle: $('reserveDoneTitle'),
+    reserveSlipDrop: $('reserveSlipDrop'),
+    reserveSlipFile: $('reserveSlipFile'),
+    reserveSlipText: $('reserveSlipText'),
+    reserveSlipPreview: $('reserveSlipPreview'),
+    reserveSlipImg: $('reserveSlipImg'),
+    reserveSlipSend: $('reserveSlipSend'),
+    reserveSlipMsg: $('reserveSlipMsg'),
     reserveName: $('rsvName'),
     reservePhone: $('rsvPhone'),
     reserveDate: $('rsvDate'),
@@ -1281,6 +1289,26 @@
   /* ค่าบริการจองของวันที่เลือก (ศุกร์/เสาร์/อีเว้น) — มาจาก ?action=busy */
   let planFee = null;
 
+  /* ยอดค่าบริการของวัน/จำนวนคนที่เลือกไว้ (ตอนยังไม่กดจอง) */
+  function reserveDueTotal() {
+    if (!planFee || !planFee.needed) return 0;
+    const amount = Number(planFee.amount) || 0;
+    if (amount <= 0) return 0;
+    const party = Number(el.reserveParty && el.reserveParty.value) || 1;
+    return planFee.per === 'person' ? amount * party : amount;
+  }
+
+  /* ปุ่มหลักของฟอร์มจอง: มีค่าบริการ = “ชำระเงิน ฿X”, ไม่มี = “ยืนยันการจอง” */
+  function reserveSubmitLabel() {
+    const due = reserveDueTotal();
+    return due > 0 ? `ชำระเงิน ฿${due.toLocaleString('th-TH')}` : 'ยืนยันการจอง';
+  }
+
+  function updateReserveSubmit() {
+    if (!el.reserveSubmit || el.reserveSubmit.disabled) return;
+    el.reserveSubmit.textContent = reserveSubmitLabel();
+  }
+
   function reserveConfig() {
     const raw = (state.data && state.data.shop && state.data.shop.reserve) || {};
     return Object.assign({}, RESERVE_DEFAULTS, raw);
@@ -1592,6 +1620,7 @@
         event: (data && data.event) || null,
       };
       planFee = (data && data.fee) || null;
+      updateReserveSubmit();
       if (planClosed.closed) pickedTables = [];
     } catch (err) {
       /* the map still works without occupancy — every table stays tappable */
@@ -1818,9 +1847,13 @@
     el.reserveStatus.textContent = status;
     /* มีค่าบริการ = ต้องโชว์ยอดให้โอน และไม่เด้งกลับฟอร์มตามเวลา (ลูกค้าต้องมีเวลาจ่าย) */
     const due = fee && Number(fee.total) > 0 ? Number(fee.total) : 0;
+    if (el.reserveDoneTitle) {
+      el.reserveDoneTitle.textContent = due ? 'ชำระเงินเพื่อให้การจองสำเร็จ' : 'ได้รับคำขอจองแล้ว';
+    }
     if (el.reservePay) {
       el.reservePay.hidden = !due;
       if (due) {
+        resetSlipUI();
         /* หน้าชำระเงินเต็มรูปแบบ: ยอด + ช่องทางโอน + แนบสลิป (pay.html) */
         if (el.reservePayLink) el.reservePayLink.href = `./pay.html?code=${encodeURIComponent(rec.code)}`;
         el.reservePayAmount.textContent = `฿${due.toLocaleString('th-TH')}`;
@@ -1885,7 +1918,7 @@
     if (el.reservePay) el.reservePay.hidden = true;
     el.reserveNote.value = '';
     el.reserveSubmit.disabled = false;
-    el.reserveSubmit.textContent = 'ยืนยันการจอง';
+    el.reserveSubmit.textContent = reserveSubmitLabel();
     pickedTables = [];
     paintPlan();
     loadPlanBusy();
@@ -1930,7 +1963,7 @@
         if (answer && answer.ok === false) throw new Error(answer.error || 'receiver rejected');
         if (answer && answer.fee && Number(answer.fee.total) > 0) {
           fee = answer.fee;
-          status = `รอชำระค่าบริการ ฿${Number(answer.fee.total).toLocaleString('th-TH')} — ร้านจะยืนยันการจองหลังได้รับเงิน`;
+          status = `รอชำระค่าบริการ ฿${Number(answer.fee.total).toLocaleString('th-TH')} — ชำระเงินและแนบสลิปด้านล่างเพื่อจองให้สำเร็จ`;
         } else {
           status = `ส่งคำขอถึงร้านแล้ว — รอร้านติดต่อกลับที่ ${rec.phone}`;
         }
@@ -1941,7 +1974,7 @@
     }
 
     el.reserveSubmit.disabled = false;
-    el.reserveSubmit.textContent = 'ยืนยันการจอง';
+    el.reserveSubmit.textContent = reserveSubmitLabel();
     renderReserveDone(rec, status, fee);
     syncReserveUI();
     toast('ได้รับคำขอจองแล้ว · ' + rec.code);
@@ -1972,6 +2005,89 @@
     area.remove();
   }
 
+  /* ── แนบสลิปในป็อปอัปจอง (ไม่ต้องออกไปหน้าอื่น) ── */
+  let slipPicked = '';
+
+  function slipSay(text, bad) {
+    if (!el.reserveSlipMsg) return;
+    el.reserveSlipMsg.hidden = !text;
+    el.reserveSlipMsg.textContent = text || '';
+    el.reserveSlipMsg.className = 'reserve__slip-msg' + (bad ? ' is-bad' : '');
+  }
+
+  function resetSlipUI() {
+    slipPicked = '';
+    if (el.reserveSlipFile) el.reserveSlipFile.value = '';
+    if (el.reserveSlipPreview) el.reserveSlipPreview.hidden = true;
+    if (el.reserveSlipSend) {
+      el.reserveSlipSend.hidden = false;
+      el.reserveSlipSend.disabled = true;
+      el.reserveSlipSend.textContent = 'ส่งสลิปให้ร้านยืนยัน';
+    }
+    if (el.reserveSlipText) el.reserveSlipText.textContent = 'แตะเพื่อเลือกรูปสลิป';
+    slipSay('');
+  }
+
+  /* ย่อรูปในเบราว์เซอร์ก่อนส่ง — สลิปยังอ่านเลขได้ แต่ไฟล์เล็กลงมาก */
+  function shrinkSlip(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('อ่านไฟล์ไม่ได้'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('ไฟล์นี้ไม่ใช่รูปภาพ'));
+        img.onload = () => {
+          const max = 1280;
+          const scale = Math.min(1, max / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.72));
+        };
+        img.src = String(reader.result);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function sendSlip() {
+    const code = (reserveCurrent && reserveCurrent.code) || '';
+    const webhook = reserveConfig().webhook;
+    if (!code || !slipPicked) return;
+    if (!webhook) {
+      slipSay('ยังเชื่อมต่อระบบจองไม่ได้ — ส่งสลิปให้ร้านทาง LINE แทน', true);
+      return;
+    }
+    if (el.reserveSlipSend) {
+      el.reserveSlipSend.disabled = true;
+      el.reserveSlipSend.textContent = 'กำลังส่ง…';
+    }
+    slipSay('');
+    try {
+      const res = await fetch(webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'submit-slip', code, image: slipPicked }),
+      });
+      const data = await res.json();
+      if (!data || data.ok === false) throw new Error((data && data.error) || 'HTTP ' + res.status);
+      if (el.reserveSlipSend) el.reserveSlipSend.hidden = true;
+      if (el.reserveStatus) el.reserveStatus.textContent = 'ส่งสลิปแล้ว — รอร้านตรวจสอบและยืนยันการจอง';
+      slipSay(`ได้รับสลิปแล้ว ✓ ร้านจะยืนยันการจองให้หลังตรวจสอบ · เก็บรหัส ${code} ไว้ด้วย`);
+      toast('ส่งสลิปให้ร้านแล้ว · ' + code);
+    } catch (err) {
+      if (el.reserveSlipSend) {
+        el.reserveSlipSend.disabled = false;
+        el.reserveSlipSend.textContent = 'ส่งสลิปให้ร้านยืนยัน';
+      }
+      slipSay('ส่งสลิปไม่สำเร็จ — ' + String((err && err.message) || err) + ' ลองอีกครั้งหรือส่งทาง LINE', true);
+    }
+  }
+
   function wireReserve() {
     if (!el.reserveSheet) return;
     el.reserveOpen?.addEventListener('click', openReserve);
@@ -1982,6 +2098,25 @@
       if (reserveCurrent) copyReserve(reserveCurrent);
     });
     el.reserveAgain?.addEventListener('click', resetReserveForm);
+    el.reserveSlipFile?.addEventListener('change', async () => {
+      const file = el.reserveSlipFile.files && el.reserveSlipFile.files[0];
+      if (!file) return;
+      slipSay('');
+      if (el.reserveSlipSend) el.reserveSlipSend.disabled = true;
+      try {
+        slipPicked = await shrinkSlip(file);
+        if (el.reserveSlipImg) el.reserveSlipImg.src = slipPicked;
+        if (el.reserveSlipPreview) el.reserveSlipPreview.hidden = false;
+        if (el.reserveSlipText) el.reserveSlipText.textContent = file.name || 'เลือกแล้ว';
+        if (el.reserveSlipSend) el.reserveSlipSend.disabled = false;
+      } catch (err) {
+        slipPicked = '';
+        slipSay(String((err && err.message) || err), true);
+      }
+    });
+    el.reserveSlipSend?.addEventListener('click', sendSlip);
+    el.reserveParty?.addEventListener('change', updateReserveSubmit);
+    el.reserveParty?.addEventListener('input', updateReserveSubmit);
     el.reservePayCopy?.addEventListener('click', async () => {
       const text = [el.reservePayAmount.textContent, el.reservePayHow.textContent].filter(Boolean).join('\n');
       try {

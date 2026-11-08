@@ -31,7 +31,7 @@
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;900&display=swap" /></noscript>
   <!-- bump the ?v= stamp whenever style.css or app.js changes: GitHub Pages
        caches both for 10 minutes, so a returning visitor would keep the old design -->
-  <link rel="stylesheet" href="./style.css?v=1.1.34" />
+  <link rel="stylesheet" href="./style.css?v=1.1.35" />
 </head>
 <body>
   <!-- ── Intro animation (skippable) ───────────────────────────── -->
@@ -282,15 +282,24 @@
       </form>
 
       <div class="reserve__done" id="reserveDone" hidden>
-        <p class="reserve__done-title">ได้รับคำขอจองแล้ว</p>
+        <p class="reserve__done-title" id="reserveDoneTitle">ได้รับคำขอจองแล้ว</p>
         <p class="reserve__code" id="reserveCode">SOD-0000</p>
         <dl class="reserve__summary" id="reserveSummary"></dl>
         <div class="reserve__pay" id="reservePay" hidden>
           <p class="reserve__pay-title">ชำระค่าบริการการจอง</p>
           <p class="reserve__pay-amount" id="reservePayAmount">฿0</p>
           <p class="reserve__pay-how" id="reservePayHow"></p>
-          <a class="reserve__pay-go" id="reservePayLink" href="./pay.html">ไปหน้าชำระเงิน / แนบสลิป →</a>
+          <!-- แนบสลิปในป็อปอัปเดียวกัน ไม่ต้องออกไปหน้าอื่น -->
+          <label class="reserve__slip-drop" id="reserveSlipDrop">
+            <b>แนบสลิปการโอน</b>
+            <span id="reserveSlipText">แตะเพื่อเลือกรูปสลิป</span>
+            <input id="reserveSlipFile" type="file" accept="image/*" />
+          </label>
+          <div class="reserve__slip-preview" id="reserveSlipPreview" hidden><img id="reserveSlipImg" alt="ตัวอย่างสลิปที่เลือก" /></div>
+          <button class="reserve__slip-send" id="reserveSlipSend" type="button" disabled>ส่งสลิปให้ร้านยืนยัน</button>
+          <p class="reserve__slip-msg" id="reserveSlipMsg" role="status" hidden></p>
           <button class="reserve__action" id="reservePayCopy" type="button">คัดลอกข้อมูลชำระเงิน</button>
+          <a class="reserve__pay-later" id="reservePayLink" href="./pay.html">เปิดหน้าชำระเงินเต็มรูปแบบ</a>
         </div>
         <p class="reserve__status" id="reserveStatus" role="status"></p>
         <p class="reserve__auto" id="reserveAuto" role="status" hidden></p>
@@ -307,6 +316,6 @@
   <button class="to-top" id="toTop" type="button" aria-label="กลับขึ้นด้านบน" hidden>↑</button>
   <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
 
-  <script src="./app.js?v=1.1.34" defer></script>
+  <script src="./app.js?v=1.1.35" defer></script>
 </body>
 </html>

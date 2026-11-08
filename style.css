@@ -3426,3 +3426,79 @@ select.field__input {
   border-color: rgba(240, 116, 116, 0.5);
   color: #f07474;
 }
+
+/* ── ขั้นชำระเงินในป็อปอัปจอง: แนบสลิปได้ทันที ── */
+.reserve__slip-drop {
+  display: block;
+  margin-top: 12px;
+  padding: 14px 12px;
+  border: 1.5px dashed rgba(216, 178, 106, 0.45);
+  border-radius: 14px;
+  text-align: center;
+  font-size: 0.86rem;
+  color: #b7a9a0;
+  cursor: pointer;
+  background: rgba(216, 178, 106, 0.05);
+}
+
+.reserve__slip-drop b {
+  display: block;
+  margin-bottom: 2px;
+  color: #d8b26a;
+  font-size: 0.92rem;
+}
+
+.reserve__slip-drop input {
+  display: none;
+}
+
+.reserve__slip-preview {
+  margin-top: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.reserve__slip-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 240px;
+  object-fit: contain;
+  background: #14100f;
+}
+
+.reserve__slip-send {
+  width: 100%;
+  margin-top: 12px;
+  padding: 13px;
+  border: 0;
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 700;
+  color: #241a0d;
+  background: linear-gradient(180deg, #e3c079, #c79c53);
+}
+
+.reserve__slip-send[disabled] {
+  opacity: 0.55;
+}
+
+.reserve__slip-msg {
+  margin: 10px 0 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: #d8b26a;
+}
+
+.reserve__slip-msg.is-bad {
+  color: #f07474;
+}
+
+.reserve__pay-later {
+  display: block;
+  margin-top: 10px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #b7a9a0;
+}
