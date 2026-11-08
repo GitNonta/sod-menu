@@ -3390,3 +3390,39 @@ select.field__input {
     margin-top: 6px;
   }
 }
+
+/* ── หน้าชำระเงินของลูกค้า: ลิงก์จากกล่องยอดโอน ── */
+.reserve__pay-go {
+  display: block;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.92rem;
+  text-decoration: none;
+  color: #241a0d;
+  background: linear-gradient(180deg, #e3c079, #c79c53);
+}
+
+/* ── today.html: สลิปที่ลูกค้าส่งมา ── */
+.jnl__slip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(216, 178, 106, 0.45);
+  color: #d8b26a;
+  font-size: 0.74rem;
+  text-decoration: none;
+}
+
+.jnl__slip.is-ok {
+  border-color: rgba(95, 209, 139, 0.5);
+  color: #5fd18b;
+}
+
+.jnl__slip.is-bad {
+  border-color: rgba(240, 116, 116, 0.5);
+  color: #f07474;
+}

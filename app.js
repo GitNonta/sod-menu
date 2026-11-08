@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.33';
+  const ASSET_VERSION = '1.0.34';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -92,6 +92,7 @@
     reservePayAmount: $('reservePayAmount'),
     reservePayHow: $('reservePayHow'),
     reservePayCopy: $('reservePayCopy'),
+    reservePayLink: $('reservePayLink'),
     reserveName: $('rsvName'),
     reservePhone: $('rsvPhone'),
     reserveDate: $('rsvDate'),
@@ -1820,6 +1821,8 @@
     if (el.reservePay) {
       el.reservePay.hidden = !due;
       if (due) {
+        /* หน้าชำระเงินเต็มรูปแบบ: ยอด + ช่องทางโอน + แนบสลิป (pay.html) */
+        if (el.reservePayLink) el.reservePayLink.href = `./pay.html?code=${encodeURIComponent(rec.code)}`;
         el.reservePayAmount.textContent = `฿${due.toLocaleString('th-TH')}`;
         el.reservePayHow.textContent = [
           fee.pay ? `โอนที่ ${fee.pay}` : 'โอนตามช่องทางที่ร้านแจ้ง',

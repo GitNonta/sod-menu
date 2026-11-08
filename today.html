@@ -18,7 +18,7 @@
       if (localStorage.getItem('sod-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
     } catch (e) {}
   </script>
-  <link rel="stylesheet" href="./style.css?v=1.1.33" />
+  <link rel="stylesheet" href="./style.css?v=1.1.34" />
 </head>
 <body class="jnl-page">
   <header class="site-header">
@@ -287,6 +287,16 @@
           ? '<a class="jnl__phone" href="tel:' + escapeHTML(String(row.phone).replace(/[^\d+]/g, '')) + '">' +
             escapeHTML(prettyPhone(row.phone)) + '</a>'
           : '';
+        /* สลิปที่ลูกค้าส่งมา: เปิดดูได้จากลิงก์ที่แนบ token ไปด้วย */
+        const slipUrl = row.slip && webhook
+          ? (function () {
+              const url = new URL(webhook);
+              url.searchParams.set('action', 'slip');
+              url.searchParams.set('code', String(row.code || ''));
+              if (readToken()) url.searchParams.set('token', readToken());
+              return url.toString();
+            })()
+          : '';
         return (
           '<li class="jnl__row">' +
             '<p class="jnl__time">' + escapeHTML(row.time || '--:--') + '<small>น.</small></p>' +
@@ -302,6 +312,11 @@
                   ? '<span class="jnl__pay' + (row.paid ? ' is-paid' : '') + '">' +
                     (row.paid ? 'ชำระแล้ว ฿' : 'รอชำระ ฿') + escapeHTML(String(row.fee)) + '</span>'
                   : '') +
+                (slipUrl
+                  ? ' <a class="jnl__slip' + (row.slipStatus === 'อนุมัติ' ? ' is-ok' : row.slipStatus === 'ไม่ผ่าน' ? ' is-bad' : '') +
+                    '" href="' + escapeHTML(slipUrl) + '" target="_blank" rel="noopener">สลิป: ' +
+                    escapeHTML(row.slipStatus || 'รอตรวจ') + '</a>'
+                  : '') +
               '</p>' +
               note +
             '</div>' +
@@ -310,7 +325,11 @@
               (row.code
                 ? '<div class="jnl__acts">' +
                     (row.fee > 0 && !row.paid
-                      ? '<button class="jnl__act is-ok" type="button" data-code="' + escapeHTML(row.code) + '" data-paid="1">ชำระแล้ว</button>'
+                      ? (slipUrl && (row.slipStatus || 'รอตรวจ') === 'รอตรวจ'
+                          ? '<button class="jnl__act is-ok" type="button" data-code="' + escapeHTML(row.code) + '" data-review="1">อนุมัติสลิป</button>' +
+                            '<button class="jnl__act is-off" type="button" data-code="' + escapeHTML(row.code) + '" data-review="0">สลิปไม่ผ่าน</button>'
+                          : '') +
+                        '<button class="jnl__act is-ok" type="button" data-code="' + escapeHTML(row.code) + '" data-paid="1">ชำระแล้ว</button>'
                       : '') +
                     '<button class="jnl__act is-ok" type="button" data-code="' + escapeHTML(row.code) +
                       '" data-status="ยืนยันแล้ว"' + (row.status === 'ยืนยันแล้ว' ? ' disabled' : '') + '>ยืนยัน</button>' +
@@ -326,6 +345,10 @@
 
     Array.prototype.forEach.call(el.list.querySelectorAll('.jnl__act'), function (btn) {
       btn.addEventListener('click', function () {
+        if (btn.dataset.review !== undefined) {
+          reviewSlip(btn.dataset.code, btn.dataset.review === '1', btn);
+          return;
+        }
         if (btn.dataset.paid) {
           markPaid(btn.dataset.code, btn);
           return;
@@ -333,6 +356,26 @@
         setStatus(btn.dataset.code, btn.dataset.status, btn);
       });
     });
+  }
+
+  /* ── ตรวจสลิป: อนุมัติ = รับชำระแล้วยืนยัน, ตีกลับ = ให้ลูกค้าส่งใหม่ ── */
+  async function reviewSlip(code, approve, btn) {
+    if (!code) return;
+    const group = btn.parentNode;
+    const buttons = group ? group.querySelectorAll('.jnl__act') : [];
+    Array.prototype.forEach.call(buttons, function (item) { item.disabled = true; });
+    el.notice.hidden = true;
+    try {
+      await lockAction('review-slip', { code: code, approve: !!approve });
+      el.foot.textContent = approve
+        ? 'อนุมัติสลิป ' + code + ' แล้ว — ยืนยันการจองและรับชำระเรียบร้อย'
+        : 'ตีกลับสลิป ' + code + ' — ลูกค้าต้องแนบสลิปใหม่';
+      load();
+    } catch (err) {
+      Array.prototype.forEach.call(buttons, function (item) { item.disabled = false; });
+      el.notice.hidden = false;
+      el.notice.textContent = 'บันทึกผลตรวจสลิปไม่สำเร็จ — ' + friendlyError(err);
+    }
   }
 
   /* ── ลูกค้าโอนค่าบริการแล้ว: ยืนยันการจองให้เลย ── */
@@ -703,6 +746,11 @@
     } catch (err) {
       schedSay('บันทึกไม่สำเร็จ — ' + friendlyError(err));
     }
+  }
+
+  /* ── หน้าชำระเงิน (pay.html) ของร้านนี้ — ใช้ในข้อความช่วยเหลือ ── */
+  function payPageURL(code) {
+    return './pay.html?code=' + encodeURIComponent(String(code || ''));
   }
 
   async function boot() {

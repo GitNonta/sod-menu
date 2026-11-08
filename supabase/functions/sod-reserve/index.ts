@@ -10,8 +10,13 @@
  *   POST  { action:'lock'|'unlock', token, date, tables:[], note }   (ต้อง token)
  *   POST  { action:'set-status', token, code, status }                (ต้อง token)
  *         status='ยกเลิก' → ลบแถวนั้นออกจริง (โต๊ะว่างทันที ไม่ค้างเป็นประวัติ)
- *   GET   ?action=config                             เวลาปิดจอง + อีเว้น (ไม่ต้อง token)
- *   POST  { action:'save-config', token, closeTime, events:[] }        (ต้อง token)
+ *   GET   ?action=config                             เวลาปิดจอง + อีเว้น + ค่าบริการ (ไม่ต้อง token)
+ *   POST  { action:'save-config', token, closeTime, events:[], fee }   (ต้อง token)
+ *   POST  { action:'mark-paid', token, code }        ร้านรับเงินแล้ว → ยืนยันการจอง
+ *   GET   ?action=order&code=…                       ใบจองสำหรับหน้าชำระเงิน (ชื่อปิดบางส่วน)
+ *   POST  { action:'submit-slip', code, image }      ลูกค้าแนบสลิปโอนเงิน (dataURL)
+ *   POST  { action:'review-slip', token, code, approve }  ร้านอนุมัติ/ตีกลับสลิป
+ *   GET   ?action=slip&code=…&token=…                ดูรูปสลิปของลูกค้า (ต้อง token)
  *   GET   ?action=linetest&token=…                   ส่งข้อความทดสอบเข้า LINE
  *   POST  body ที่มี "events" (LINE webhook)          จด groupId ลงตาราง settings
  *
@@ -41,7 +46,14 @@ const SOD_TOKEN = (Deno.env.get('SOD_TOKEN') || '').trim();
 const AUTO_CONFIRM = (Deno.env.get('AUTO_CONFIRM') || 'on').trim().toLowerCase() !== 'off';
 const BOOKING_STATUS = AUTO_CONFIRM ? STATUSES[1] : STATUSES[0];
 /* ตราประทับบิลด์ — `?action=status` ตอบค่านี้กลับไป จะรู้ทันทีว่า deploy ใหม่ขึ้นหรือยัง */
-const BUILD = '2026-11-08.5';
+const BUILD = '2026-11-08.6';
+
+/* สลิปโอนเงิน: เก็บใน Storage bucket ส่วนตัว — อ่านได้เฉพาะผ่านฟังก์ชันนี้ (ต้อง token ร้าน) */
+const SLIP_BUCKET = 'slips';
+const SLIP_PENDING = 'รอตรวจ';
+const SLIP_OK = 'อนุมัติ';
+const SLIP_NO = 'ไม่ผ่าน';
+const SLIP_MAX_BYTES = 2000000;
 
 const CORS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -89,7 +101,8 @@ const enc = (value: string) => encodeURIComponent(value);
    EVENTS     = JSON [{ date, name, open, lock }] — lock:true = วันนั้นปิดการจองทั้งวัน
                 open = เวลาร้านเปิดหลังงาน (งานสทาปปารตี้ = 00:30) */
 type ShopEvent = { date: string; name: string; lock: boolean; open: string };
-/* ค่าบริการจอง: เก็บเฉพาะวันศุกร์/เสาร์/วันอีเว้น (ตั้งใน today.html) */
+/* ค่าบริการจอง: เก็บเฉพาะวันศุกร์/เสาร์/วันอีเว้น (ตั้งใน today.html)
+   note = ข้อความใต้ยอดโอน เช่น “นำสลิปนี้เป็นคูปองส่วนลด ฿200 ภายในร้าน” */
 type ShopFee = { enabled: boolean; amount: number; per: string; pay: string; note: string };
 type ShopConfig = { closeTime: string; events: ShopEvent[]; fee: ShopFee };
 
@@ -289,7 +302,7 @@ async function listOf(rawDate: unknown): Promise<Response> {
   const date = dayStr(rawDate);
   const res = await sb(
     `reservations?date=eq.${enc(date)}` +
-      `&select=code,name,phone,date,time,party,note,status,table_label,created_at,fee,paid&order=time.asc`,
+      `&select=code,name,phone,date,time,party,note,status,table_label,created_at,fee,paid,slip,slip_status&order=time.asc`,
   );
   if (!res.ok) return json({ ok: false, error: `db ${res.status}` }, 502);
   const rows = (Array.isArray(res.data) ? (res.data as Json[]) : []).map((row) => ({
@@ -306,6 +319,9 @@ async function listOf(rawDate: unknown): Promise<Response> {
     /* ค่าบริการที่ต้องเก็บของแถวนี้ (0 = ไม่มี) และชำระแล้วหรือยัง */
     fee: Number(row.fee) || 0,
     paid: row.paid !== false,
+    /* มีสลิปแนบมาแล้วหรือยัง + ผลตรวจ ('', 'รอตรวจ', 'อนุมัติ', 'ไม่ผ่าน') */
+    slip: String(row.slip || '').length > 0,
+    slipStatus: String(row.slip_status || ''),
   }));
   const people = rows.reduce((sum, r) => sum + (r.party || 0), 0);
   return json({ ok: true, service: 'sod-reserve', date, count: rows.length, people, rows });
@@ -341,7 +357,146 @@ async function busyOf(rawDate: unknown): Promise<Response> {
   });
 }
 
-/* ── LINE: แจ้งเตือนจองใหม่ + จด groupId ───────────────────── */
+/* ── ใบจองของลูกค้า สำหรับหน้าชำระเงิน (pay.html) ──────────────
+   เปิดด้วยรหัสจอง ไม่ต้อง token แต่ปิดชื่อบางส่วนและไม่ส่งเบอร์โทรกลับ */
+function maskName(raw: unknown): string {
+  const text = String(raw || '').trim();
+  if (text.length <= 1) return text || '—';
+  return `${text.slice(0, 1)}${'*'.repeat(Math.min(6, text.length - 1))}`;
+}
+
+async function orderOf(rawCode: unknown): Promise<Response> {
+  const code = String(rawCode || '').trim().slice(0, 24);
+  if (!code) return json({ ok: false, error: 'missing code' });
+  const res = await sb(
+    `reservations?code=eq.${enc(code)}` +
+      `&select=code,name,date,time,party,table_label,fee,paid,status,slip,slip_status&limit=1`,
+  );
+  if (!res.ok) return json({ ok: false, error: `db ${res.status}` }, 502);
+  const rows = Array.isArray(res.data) ? (res.data as Json[]) : [];
+  if (!rows.length) return json({ ok: false, error: 'not found' }, 404);
+  const row = rows[0];
+  const cfg = await shopConfig();
+  return json({
+    ok: true,
+    service: 'sod-reserve',
+    order: {
+      code: String(row.code || ''),
+      name: maskName(row.name),
+      date: String(row.date || ''),
+      time: String(row.time || '').slice(0, 5),
+      party: Number(row.party) || 0,
+      table: String(row.table_label || '').toUpperCase(),
+      total: Number(row.fee) || 0,
+      paid: row.paid === true,
+      status: String(row.status || STATUSES[0]),
+      slip: String(row.slip || '').length > 0,
+      slipStatus: String(row.slip_status || ''),
+      pay: cfg.fee.pay,
+      note: cfg.fee.note,
+      per: cfg.fee.per,
+    },
+    today: bkkToday(),
+  });
+}
+
+/* ── สลิปโอนเงิน ──────────────────────────────────────────── */
+function slipPathOf(code: string): string {
+  return `${code.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 24) || 'slip'}.jpg`;
+}
+
+/** dataURL / base64 → bytes (จำกัด 2 MB กัน payload ยักษ์) */
+function decodeImage(raw: unknown): Uint8Array | null {
+  const text = String(raw || '');
+  const comma = text.indexOf(',');
+  const b64 = (comma >= 0 ? text.slice(comma + 1) : text).trim();
+  if (!b64 || b64.length * 0.75 > SLIP_MAX_BYTES) return null;
+  try {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+async function storagePut(path: string, bytes: Uint8Array): Promise<boolean> {
+  const res = await fetch(`${SB_URL}/storage/v1/object/${SLIP_BUCKET}/${enc(path)}`, {
+    method: 'POST',
+    headers: {
+      apikey: SB_KEY,
+      Authorization: `Bearer ${SB_KEY}`,
+      'Content-Type': 'image/jpeg',
+      'x-upsert': 'true',
+      'cache-control': '3600',
+    },
+    body: bytes,
+  });
+  if (!res.ok) console.error('slip upload failed', res.status, await res.text());
+  return res.ok;
+}
+
+/** ลูกค้าส่งสลิป (ไม่ต้อง token) → slip_status='รอตรวจ' */
+async function submitSlip(payload: Json): Promise<Response> {
+  const code = String(payload.code || '').trim().slice(0, 24);
+  if (!code) return json({ ok: false, error: 'missing code' });
+  const bytes = decodeImage(payload.image);
+  if (!bytes) return json({ ok: false, error: 'รูปใหญ่เกินไปหรืออ่านไม่ได้ — ลองรู้อื่น' });
+  const found = await sb(`reservations?code=eq.${enc(code)}&select=code,paid&limit=1`);
+  if (!found.ok) return json({ ok: false, error: `db ${found.status}` }, 502);
+  const rows = Array.isArray(found.data) ? (found.data as Json[]) : [];
+  if (!rows.length) return json({ ok: false, error: 'not found' }, 404);
+  if (rows[0].paid === true) return json({ ok: true, service: 'sod-reserve', code, already: true });
+  const path = slipPathOf(code);
+  if (!(await storagePut(path, bytes))) return json({ ok: false, error: 'อัปโหลดสลิปไม่สำเร็จ' }, 502);
+  const saved = await sb(`reservations?code=eq.${enc(code)}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ slip: path, slip_status: SLIP_PENDING }),
+  });
+  if (!saved.ok) return json({ ok: false, error: `db ${saved.status}` }, 502);
+  return json({ ok: true, service: 'sod-reserve', code, slip: true, slipStatus: SLIP_PENDING });
+}
+
+/** ร้านตรวจสลิป: อนุมัติ = รับชำระ + ยืนยันการจอง, ตีกลับ = ให้ลูกค้าส่งใหม่ */
+async function reviewSlip(payload: Json): Promise<Response> {
+  const code = String(payload.code || '').trim().slice(0, 24);
+  if (!code) return json({ ok: false, error: 'missing code' });
+  const approve = payload.approve !== false;
+  const patch: Json = approve
+    ? { slip_status: SLIP_OK, paid: true, status: STATUSES[1] }
+    : { slip_status: SLIP_NO };
+  const res = await sb(`reservations?code=eq.${enc(code)}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) return json({ ok: false, error: `db ${res.status}` }, 502);
+  const rows = Array.isArray(res.data) ? (res.data as Json[]) : [];
+  if (!rows.length) return json({ ok: false, error: 'not found' }, 404);
+  return json({ ok: true, service: 'sod-reserve', code, slipStatus: String(patch.slip_status), paid: approve });
+}
+
+/** ส่งรูปสลิปกลับให้ร้าน (bucket ปิด → ต้องมี token) */
+async function slipImage(rawCode: unknown): Promise<Response> {
+  const code = String(rawCode || '').trim().slice(0, 24);
+  if (!code) return json({ ok: false, error: 'missing code' }, 400);
+  const res = await fetch(`${SB_URL}/storage/v1/object/${SLIP_BUCKET}/${enc(slipPathOf(code))}`, {
+    headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
+  });
+  if (!res.ok) return json({ ok: false, error: 'not found' }, 404);
+  return new Response(await res.arrayBuffer(), {
+    status: 200,
+    headers: {
+      ...CORS,
+      'Content-Type': res.headers.get('content-type') || 'image/jpeg',
+      'Cache-Control': 'private, max-age=60',
+    },
+  });
+}
+
+/* ── LINE: แจ้งเตือนจองใหม่ + จด groupId ──────────────────── */
 async function lineTarget(): Promise<string> {
   const fromEnv = (Deno.env.get('LINE_TO') || '').trim();
   if (fromEnv) return fromEnv;
@@ -526,6 +681,15 @@ async function handlePost(req: Request, params: URLSearchParams): Promise<Respon
     return json({ ok: true, service: 'sod-reserve', code, status: STATUSES[1], paid: true });
   }
 
+  /* ลูกค้าส่งสลิปโอนเงินจากหน้าชำระเงิน — เปิดด้วยรหัสจอง ไม่ต้อง token */
+  if (action === 'submit-slip') return await submitSlip(payload);
+
+  /* ร้านตรวจสลิป: อนุมัติ = รับชำระแล้วยืนยันการจอง, ตีกลับ = ให้ลูกค้าส่งใหม่ */
+  if (action === 'review-slip') {
+    if (!authorized(sent)) return json({ ok: false, error: 'unauthorized' }, 401);
+    return await reviewSlip(payload);
+  }
+
   /* เวลาปิดจอง + วันอีเว้น + ค่าบริการ (ตั้งจาก today.html) */
   if (action === 'save-config') {
     if (!authorized(sent)) return json({ ok: false, error: 'unauthorized' }, 401);
@@ -628,6 +792,15 @@ async function handleGet(params: URLSearchParams): Promise<Response> {
 
   /* ผังฝั่งลูกค้า: คืนแค่เลขโต๊ะ/เวลา/โน้ตของโต๊ะที่ร้านล็อค ไม่มีข้อมูลส่วนตัว */
   if (action === 'busy') return await busyOf(params.get('date'));
+
+  /* หน้าชำระเงินของลูกค้า: เปิดด้วยรหัสจอง ชื่อถูกปิดบางส่วน ไม่มีเบอร์โทร */
+  if (action === 'order') return await orderOf(params.get('code'));
+
+  /* รูปสลิปของลูกค้า: bucket ปิด ต้องมี token ร้านเท่านั้น */
+  if (action === 'slip') {
+    if (!authorized(sent)) return json({ ok: false, error: 'unauthorized' }, 401);
+    return await slipImage(params.get('code'));
+  }
 
   /* ตารางปิดจอง/อีเว้น — ไม่มีข้อมูลลูกค้า จึงไม่ต้อง token */
   if (action === 'config') {

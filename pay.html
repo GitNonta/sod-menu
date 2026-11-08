@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0d0b0c" />
+<title>ชำระเงินค่าจอง — SOD! signature</title>
+<meta name="robots" content="noindex" />
+<style>
+  :root {
+    --bg: #0d0b0c;
+    --card: #171315;
+    --line: #2b2326;
+    --ink: #f6efe7;
+    --dim: #b7a9a0;
+    --gold: #d8b26a;
+    --ok: #5fd18b;
+    --warn: #f0b45a;
+    --bad: #f07474;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: radial-gradient(120% 90% at 50% 0%, #1c1518 0%, var(--bg) 60%) no-repeat, var(--bg);
+    color: var(--ink);
+    font-family: "Noto Sans Thai", "IBM Plex Sans Thai", -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.6;
+    min-height: 100vh;
+    padding: 20px 16px 48px;
+  }
+  .wrap { max-width: 460px; margin: 0 auto; }
+  .brand { text-align: center; margin-bottom: 18px; }
+  .brand strong { display: block; font-size: 1.15rem; letter-spacing: .14em; color: var(--gold); }
+  .brand span { font-size: .82rem; color: var(--dim); }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+    margin-bottom: 14px;
+  }
+  h1 { font-size: 1.02rem; margin: 0 0 4px; letter-spacing: .01em; }
+  .sub { margin: 0 0 14px; font-size: .84rem; color: var(--dim); }
+  .row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: .9rem; border-bottom: 1px dashed #241d20; }
+  .row:last-child { border-bottom: 0; }
+  .row dt { color: var(--dim); }
+  .row dd { margin: 0; font-weight: 600; text-align: right; }
+  dl { margin: 0; }
+  .amount { text-align: center; padding: 10px 0 4px; }
+  .amount span { display: block; font-size: .8rem; color: var(--dim); letter-spacing: .08em; }
+  .amount strong { font-size: 2.5rem; color: var(--gold); font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .payhow { margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: #201a1c; border: 1px solid var(--line); font-size: .9rem; white-space: pre-line; }
+  .payhow b { color: var(--gold); }
+  .coupon { margin: 12px 0 0; font-size: .84rem; color: var(--warn); background: rgba(216,178,106,.08); border: 1px dashed rgba(216,178,106,.4); border-radius: 12px; padding: 10px 12px; }
+  .copy { margin-top: 12px; width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: #221b1d; color: var(--ink); font: inherit; font-size: .9rem; }
+  .copy:active { transform: scale(.99); }
+  .field { margin-top: 14px; }
+  .field label { display: block; font-size: .84rem; color: var(--dim); margin-bottom: 6px; }
+  .drop {
+    display: block; border: 1.5px dashed var(--line); border-radius: 14px; padding: 18px 12px;
+    text-align: center; font-size: .88rem; color: var(--dim); cursor: pointer; background: #14100f;
+  }
+  .drop input { display: none; }
+  .drop b { color: var(--gold); display: block; margin-bottom: 2px; }
+  .preview { margin-top: 12px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+  .preview img { display: block; width: 100%; height: auto; }
+  .go {
+    width: 100%; margin-top: 14px; padding: 14px; border: 0; border-radius: 14px; font: inherit;
+    font-weight: 700; font-size: .98rem; background: linear-gradient(180deg, #e3c079, #c79c53); color: #241a0d;
+  }
+  .go[disabled] { opacity: .55; }
+  .note { margin: 10px 0 0; font-size: .78rem; color: var(--dim); text-align: center; }
+  .msg { margin: 12px 0 0; padding: 11px 13px; border-radius: 12px; font-size: .86rem; }
+  .msg.is-ok { background: rgba(95,209,139,.12); color: var(--ok); }
+  .msg.is-bad { background: rgba(240,116,116,.12); color: var(--bad); }
+  .msg.is-wait { background: rgba(240,180,90,.12); color: var(--warn); }
+  .badge { display: inline-block; font-size: .76rem; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); }
+  .badge.is-paid { color: var(--ok); border-color: rgba(95,209,139,.45); }
+  .badge.is-wait { color: var(--warn); border-color: rgba(240,180,90,.45); }
+  .codebox { display: flex; gap: 8px; margin-top: 10px; }
+  .codebox input {
+    flex: 1; padding: 12px; border-radius: 12px; border: 1px solid var(--line);
+    background: #14100f; color: var(--ink); font: inherit; font-size: .95rem; letter-spacing: .08em; text-transform: uppercase;
+  }
+  .codebox button { padding: 12px 16px; border-radius: 12px; border: 0; background: var(--gold); color: #241a0d; font: inherit; font-weight: 700; }
+  .foot { margin-top: 18px; text-align: center; font-size: .78rem; color: var(--dim); }
+  .foot a { color: var(--gold); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <strong>SOD! signature</strong>
+      <span id="payShop">โสด ซิกเนเจอร์ · ชำระเงินค่าจอง</span>
+    </div>
+
+    <!-- ยังไม่มีรหัสในลิงก์: ให้กรอกเอง -->
+    <section class="card" id="lookup" hidden>
+      <h1>กรอกรหัสการจอง</h1>
+      <p class="sub">รหัสอยู่ในข้อความยืนยันหลังจองสำเร็จ (เช่น SOD-ABC12)</p>
+      <form class="codebox" id="lookupForm">
+        <input id="lookupCode" type="text" autocomplete="off" autocapitalize="characters" placeholder="SOD-XXXXX" aria-label="รหัสการจอง" maxlength="24" />
+        <button type="submit">เปิด</button>
+      </form>
+      <p class="msg is-bad" id="lookupMsg" hidden></p>
+    </section>
+
+    <!-- ใบจอง + ยอดที่ต้องชำระ -->
+    <section class="card" id="bill" hidden>
+      <h1>ชำระเงินค่าจอง</h1>
+      <p class="sub">รหัส <b id="billCode">—</b> <span class="badge" id="billBadge">รอชำระ</span></p>
+      <dl>
+        <div class="row"><dt>วันที่</dt><dd id="billDate">—</dd></div>
+        <div class="row"><dt>เวลา</dt><dd id="billTime">—</dd></div>
+        <div class="row"><dt>โต๊ะ</dt><dd id="billTable">—</dd></div>
+        <div class="row"><dt>จำนวน</dt><dd id="billParty">—</dd></div>
+        <div class="row"><dt>ชื่อผู้จอง</dt><dd id="billName">—</dd></div>
+      </dl>
+
+      <div class="amount">
+        <span id="billAmountLabel">ยอดที่ต้องชำระ</span>
+        <strong id="billAmount">฿0</strong>
+      </div>
+      <p class="payhow" id="billHow">รอข้อมูลช่องทางชำระเงินจากร้าน</p>
+      <p class="coupon" id="billNote" hidden></p>
+      <button class="copy" id="billCopy" type="button">คัดลอกข้อมูลการโอน</button>
+      <p class="note">โอนแล้วแนบสลิปด้านล่าง ร้านจะยืนยันการจองให้หลังตรวจสอบ</p>
+    </section>
+
+    <!-- ส่งสลิป -->
+    <section class="card" id="slipBox" hidden>
+      <h1>แนบสลิปการโอน</h1>
+      <p class="sub">ถ่าย/แคปหน้าจอสลิป แล้วเลือกไฟล์ด้านล่าง (รูปจะถูกย่อให้เล็กลงก่อนส่ง)</p>
+      <label class="drop" id="slipDrop">
+        <b>เลือกรูปสลิป</b>
+        <span id="slipDropText">แตะเพื่อเลือกรูป หรือถ่ายภาพ</span>
+        <input id="slipFile" type="file" accept="image/*" />
+      </label>
+      <div class="preview" id="slipPreview" hidden><img id="slipPreviewImg" alt="ตัวอย่างสลิปที่เลือก" /></div>
+      <button class="go" id="slipSend" type="button" disabled>ส่งสลิปให้ร้านตรวจ</button>
+      <p class="msg" id="slipMsg" hidden></p>
+      <p class="note">รูปสลิปใช้ตรวจการโอนเท่านั้น ร้านเห็นได้คนเดียว</p>
+    </section>
+
+    <p class="foot">
+      <a href="./index.html">← กลับหน้าของร้าน</a>
+    </p>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  var FN = '';
+  var shopName = 'SOD! signature';
+  var code = '';
+  var order = null;
+  var picked = ''; /* dataURL ของสลิปที่ย่อแล้ว */
+
+  var $ = function (id) { return document.getElementById(id); };
+  var el = {
+    lookup: $('lookup'),
+    lookupForm: $('lookupForm'),
+    lookupCode: $('lookupCode'),
+    lookupMsg: $('lookupMsg'),
+    bill: $('bill'),
+    billCode: $('billCode'),
+    billBadge: $('billBadge'),
+    billDate: $('billDate'),
+    billTime: $('billTime'),
+    billTable: $('billTable'),
+    billParty: $('billParty'),
+    billName: $('billName'),
+    billAmount: $('billAmount'),
+    billAmountLabel: $('billAmountLabel'),
+    billHow: $('billHow'),
+    billNote: $('billNote'),
+    billCopy: $('billCopy'),
+    slipBox: $('slipBox'),
+    slipDrop: $('slipDrop'),
+    slipDropText: $('slipDropText'),
+    slipFile: $('slipFile'),
+    slipPreview: $('slipPreview'),
+    slipPreviewImg: $('slipPreviewImg'),
+    slipSend: $('slipSend'),
+    slipMsg: $('slipMsg'),
+    payShop: $('payShop')
+  };
+
+  var THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  var THAI_DAYS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+
+  function thaiDate(iso) {
+    var parts = String(iso || '').split('-');
+    if (parts.length !== 3) return iso || '—';
+    var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    return THAI_DAYS[d.getDay()] + '. ' + Number(parts[2]) + ' ' + (THAI_MONTHS[Number(parts[1]) - 1] || '') + ' ' + (Number(parts[0]) + 543);
+  }
+
+  function money(n) { return '฿' + Number(n || 0).toLocaleString('th-TH'); }
+
+  function say(box, text, tone) {
+    if (!box) return;
+    box.hidden = !text;
+    box.textContent = text || '';
+    box.className = 'msg' + (tone ? ' is-' + tone : '');
+  }
+
+  function setBadge(text, tone) {
+    el.billBadge.textContent = text;
+    el.billBadge.className = 'badge' + (tone ? ' is-' + tone : '');
+  }
+
+  /* ── ย่อรูปก่อนส่ง: ด้านยาวสุด 1280px, JPEG q0.72 (สลิปยังอ่านเลขได้) ── */
+  function shrink(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = function () { reject(new Error('อ่านไฟล์ไม่ได้')); };
+      reader.onload = function () {
+        var img = new Image();
+        img.onerror = function () { reject(new Error('ไฟล์นี้ไม่ใช่รูปภาพ')); };
+        img.onload = function () {
+          var max = 1280;
+          var scale = Math.min(1, max / Math.max(img.width, img.height));
+          var canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          var ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.72));
+        };
+        img.src = String(reader.result);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function render() {
+    if (!order) return;
+    el.bill.hidden = false;
+    el.billCode.textContent = order.code;
+    el.billDate.textContent = thaiDate(order.date);
+    el.billTime.textContent = (order.time || '--:--') + ' น.';
+    el.billTable.textContent = order.table ? 'โต๊ะ ' + order.table : 'ยังไม่ระบุโต๊ะ';
+    el.billParty.textContent = (order.party || 0) + ' คน';
+    el.billName.textContent = order.name || '—';
+    el.billAmount.textContent = money(order.total);
+    el.billHow.innerHTML = order.pay
+      ? '<b>โอนที่</b> ' + escapeHTML(order.pay) + '\n<b>ระบุในสลิป/หมายเหตุ</b> ' + escapeHTML(order.code)
+      : 'ร้านยังไม่ได้ระบุช่องทางโอน — ทักร้านพร้อมรหัส <b>' + escapeHTML(order.code) + '</b>';
+    el.billNote.hidden = !order.note;
+    el.billNote.textContent = order.note || '';
+
+    if (order.paid || order.status === 'ยืนยันแล้ว') {
+      setBadge('ชำระแล้ว · ยืนยันการจอง', 'paid');
+      el.billAmountLabel.textContent = 'ชำระเรียบร้อย';
+      el.slipBox.hidden = true;
+      return;
+    }
+    if (order.slipStatus === 'รอตรวจ') {
+      setBadge('รอตรวจสลิป', 'wait');
+      el.slipBox.hidden = false;
+      el.slipSend.hidden = true;
+      say(el.slipMsg, 'ได้รับสลิปแล้ว — ร้านกำลังตรวจสอบ จะยืนยันการจองให้หลังตรวจเสร็จ', 'wait');
+      return;
+    }
+    setBadge(order.slipStatus === 'ไม่ผ่าน' ? 'สลิปไม่ผ่าน · ส่งใหม่' : 'รอชำระ', order.slipStatus === 'ไม่ผ่าน' ? 'bad' : '');
+    if (order.slipStatus === 'ไม่ผ่าน') {
+      say(el.slipMsg, 'สลิปที่ส่งไปยังตรวจไม่ผ่าน — ตรวจยอด/เวลาโอนแล้วแนบสลิปใหม่', 'bad');
+    }
+    el.slipBox.hidden = false;
+    el.slipSend.hidden = false;
+  }
+
+  function escapeHTML(text) {
+    return String(text == null ? '' : text).replace(/[&<>"']/g, function (ch) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+    });
+  }
+
+  async function loadOrder(target) {
+    code = String(target || '').trim().toUpperCase();
+    if (!code) {
+      el.lookup.hidden = false;
+      return;
+    }
+    try {
+      var res = await fetch(FN + '?action=order&code=' + encodeURIComponent(code), { cache: 'no-store' });
+      var data = await res.json();
+      if (!data || data.ok === false) {
+        if (data && data.error === 'not found') {
+          el.lookup.hidden = false;
+          say(el.lookupMsg, 'ไม่พบรหัสนี้ — ตรวจรหัสอีกครั้งหรือทักร้าน', 'bad');
+          el.lookupCode.value = code;
+          return;
+        }
+        throw new Error((data && data.error) || 'HTTP ' + res.status);
+      }
+      order = data.order || null;
+      if (!order) throw new Error('ไม่พบข้อมูลการจอง');
+      el.lookup.hidden = true;
+      try { history.replaceState(null, '', '?code=' + encodeURIComponent(code)); } catch (_) {}
+      render();
+    } catch (err) {
+      el.lookup.hidden = false;
+      say(el.lookupMsg, 'เปิดใบจองไม่สำเร็จ — ' + (err && err.message ? err.message : err), 'bad');
+    }
+  }
+
+  el.lookupForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+    say(el.lookupMsg, '');
+    loadOrder(el.lookupCode.value);
+  });
+
+  el.slipFile.addEventListener('change', async function () {
+    var file = el.slipFile.files && el.slipFile.files[0];
+    if (!file) return;
+    say(el.slipMsg, '');
+    el.slipSend.disabled = true;
+    try {
+      picked = await shrink(file);
+      el.slipPreviewImg.src = picked;
+      el.slipPreview.hidden = false;
+      el.slipDropText.textContent = file.name || 'เลือกแล้ว';
+      el.slipSend.disabled = false;
+    } catch (err) {
+      picked = '';
+      say(el.slipMsg, String((err && err.message) || err), 'bad');
+    }
+  });
+
+  el.slipSend.addEventListener('click', async function () {
+    if (!picked || !code) return;
+    el.slipSend.disabled = true;
+    el.slipSend.textContent = 'กำลังส่ง…';
+    say(el.slipMsg, '');
+    try {
+      var res = await fetch(FN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'submit-slip', code: code, image: picked })
+      });
+      var data = await res.json();
+      if (!data || data.ok === false) throw new Error((data && data.error) || 'HTTP ' + res.status);
+      if (order) { order.slipStatus = 'รอตรวจ'; order.paid = !!data.already || order.paid; }
+      el.slipSend.textContent = 'ส่งสลิปให้ร้านตรวจ';
+      render();
+    } catch (err) {
+      el.slipSend.disabled = false;
+      el.slipSend.textContent = 'ส่งสลิปให้ร้านตรวจ';
+      say(el.slipMsg, 'ส่งสลิปไม่สำเร็จ — ' + String((err && err.message) || err) + ' ลองอีกครั้งหรือส่งผ่าน LINE', 'bad');
+    }
+  });
+
+  el.billCopy.addEventListener('click', async function () {
+    if (!order) return;
+    var text = 'โอนค่าจอง ' + order.code + ' ' + money(order.total) +
+      (order.pay ? ' · ' + order.pay : '') + ' · ' + order.date + ' ' + order.time;
+    try {
+      await navigator.clipboard.writeText(text);
+      el.billCopy.textContent = 'คัดลอกแล้ว ✓';
+      setTimeout(function () { el.billCopy.textContent = 'คัดลอกข้อมูลการโอน'; }, 1800);
+    } catch (_) {
+      el.billCopy.textContent = text;
+    }
+  });
+
+  async function boot() {
+    try {
+      var res = await fetch('./data/menu.json?v=' + Date.now(), { cache: 'no-store' });
+      var data = await res.json();
+      var shop = (data && data.shop) || {};
+      FN = String((shop.reserve && shop.reserve.webhook) || '');
+      shopName = String(shop.name || shopName);
+      el.payShop.textContent = shopName + ' · ชำระเงินค่าจอง';
+    } catch (err) {
+      console.warn('[pay] menu.json failed:', err);
+    }
+    if (!FN) {
+      el.lookup.hidden = false;
+      say(el.lookupMsg, 'ยังเชื่อมต่อระบบจองไม่ได้ — ทักร้านโดยตรง', 'bad');
+      return;
+    }
+    var param = new URLSearchParams(location.search).get('code');
+    loadOrder(param || '');
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>
