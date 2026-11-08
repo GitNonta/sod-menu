@@ -2986,8 +2986,22 @@ select.field__input {
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.75);
 }
 
+/* pentagon tables (most of the floor) get a five-sided target, so the red
+   fill covers exactly the drawn table instead of a box around it */
+.plan__spot.is-shape-pentagon {
+  border-color: transparent;
+  border-radius: 0;
+  background: rgb(255 255 255 / 0.07);
+  clip-path: polygon(50% 0%, 100% 36%, 82% 100%, 18% 100%, 0% 36%);
+}
+
 .plan__spot:hover {
   border-color: rgb(255 255 255 / 0.8);
+}
+
+.plan__spot.is-shape-pentagon:hover {
+  border-color: transparent;
+  background: rgb(255 255 255 / 0.16);
 }
 
 .plan__spot:active {
