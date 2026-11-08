@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.21';
+  const ASSET_VERSION = '1.0.22';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1388,7 +1388,7 @@
         const w = Number(t.w) || 5.2;
         const h = Number(t.h) || 5.2;
         planIndex.set(String(t.id), t);
-        return `<button class="plan__spot" type="button" data-table="${escapeAttr(t.id)}" aria-label="โต๊ะ ${escapeAttr(t.label || t.id)}" aria-pressed="false" style="left:${Number(t.x)}%;top:${Number(t.y)}%;width:${w}%;height:${h}%"></button>`;
+        return `<button class="plan__spot" type="button" data-table="${escapeAttr(t.id)}" aria-label="โต๊ะ ${escapeAttr(t.label || t.id)}" aria-pressed="false" style="left:${Number(t.x)}%;top:${Number(t.y)}%;width:${w}%;height:${h}%"><span class="plan__tag" aria-hidden="true"></span></button>`;
       })
       .join('');
     el.planCanvas.innerHTML = `<img class="plan__img" src="${escapeAttr(plan.image || './images/floorplan.jpg')}" alt="ผังโต๊ะของร้าน" loading="lazy" draggable="false" />${spots}`;
@@ -1430,6 +1430,9 @@
       spot.classList.toggle('is-busy', busyAt !== null);
       spot.setAttribute('aria-pressed', picked ? 'true' : 'false');
       spot.setAttribute('aria-disabled', lockedAt !== null || busyAt !== null ? 'true' : 'false');
+      /* the label lives on the table itself so the state reads without a legend */
+      const tag = spot.querySelector('.plan__tag');
+      if (tag) tag.textContent = lockedAt !== null ? 'ปิด' : busyAt !== null ? 'จองแล้ว' : '';
       if (lockedAt) spot.title = `ปิดโดยร้าน · ${lockedAt}`;
       else if (lockedAt !== null) spot.title = 'ปิดโดยร้าน';
       else if (busyAt) spot.title = `ถูกจอง ${busyAt} น.`;

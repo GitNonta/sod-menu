@@ -2961,14 +2961,29 @@ select.field__input {
   -webkit-user-drag: none;
 }
 
+/* the tap area is the table itself: same width/height as the drawing under it,
+   rounded like a table edge instead of a pill that spills onto the neighbours */
 .plan__spot {
   position: absolute;
   transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
   padding: 0;
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background: transparent;
+  border: 1px solid rgb(255 255 255 / 0.22);
+  border-radius: 14%;
+  background: rgb(255 255 255 / 0.04);
   transition: background 0.16s ease, border-color 0.16s ease, transform 0.2s cubic-bezier(0.22, 1.35, 0.36, 1);
+}
+
+.plan__tag {
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+  overflow: visible;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.75);
 }
 
 .plan__spot:hover {
@@ -2986,13 +3001,15 @@ select.field__input {
 }
 
 .plan__spot.is-busy {
-  border-color: rgb(255 255 255 / 0.18);
-  background: rgb(8 12 22 / 0.66);
+  border-color: #ff5a5f;
+  background: rgb(214 40 48 / 0.72);
+  color: #fff;
   cursor: not-allowed;
 }
 
 /* closed off by the shop (admin lock) — hatched, so it reads differently from a booking */
 .plan__spot.is-locked {
+  color: #fff;
   border-color: rgb(255 255 255 / 0.24);
   background: repeating-linear-gradient(45deg, rgb(138 140 152 / 0.85) 0 3px, rgb(52 54 64 / 0.85) 3px 6px);
   cursor: not-allowed;
@@ -3023,8 +3040,8 @@ select.field__input {
 }
 
 .plan__key.is-busy::before {
-  background: #0b1626;
-  border-color: #5c6472;
+  background: #d62830;
+  border-color: #ff5a5f;
 }
 
 .plan__key.is-locked::before {
