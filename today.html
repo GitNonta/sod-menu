@@ -18,7 +18,7 @@
       if (localStorage.getItem('sod-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
     } catch (e) {}
   </script>
-  <link rel="stylesheet" href="./style.css?v=1.1.15" />
+  <link rel="stylesheet" href="./style.css?v=1.1.16" />
 </head>
 <body class="jnl-page">
   <header class="site-header">
@@ -174,6 +174,15 @@
     } catch (_) {}
   }
 
+  /* 401 = ยังไม่ได้กรอก/กรอกรหัสผิด ไม่ใช่ระบบล่ม — แปลเป็นภาษาคน */
+  function friendlyError(err) {
+    const text = String((err && err.message) || err || '');
+    if (text === 'unauthorized' || text === 'HTTP 401') {
+      return 'รหัสผ่านร้านไม่ถูกต้อง — กรอกใหม่ในช่อง “รหัสผ่านร้าน”';
+    }
+    return text;
+  }
+
   function buildURL(date, action) {
     const url = new URL(webhook, window.location.href);
     url.searchParams.set('action', action || 'list');
@@ -257,6 +266,11 @@
     el.lock.hidden = false;
     try {
       const res = await fetch(buildURL(el.date.value || isoDate(new Date()), 'locks'), { cache: 'no-store' });
+      if (res.status === 401) {
+        el.lockMsg.hidden = false;
+        el.lockMsg.textContent = 'ต้องใส่รหัสผ่านร้านก่อนดูรายการล็อค';
+        return;
+      }
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       if (!data || data.ok === false) throw new Error((data && data.error) || 'โหลดไม่สำเร็จ');
@@ -292,7 +306,7 @@
     } catch (err) {
       btn.disabled = false;
       el.lockMsg.hidden = false;
-      el.lockMsg.textContent = 'ปลดล็อคไม่สำเร็จ — ' + err.message;
+      el.lockMsg.textContent = 'ปลดล็อคไม่สำเร็จ — ' + friendlyError(err);
     }
   }
 
@@ -417,14 +431,23 @@
       /* plain GET with no custom headers → no CORS preflight, which an
          Apps Script web app cannot answer */
       const res = await fetch(buildURL(date), { cache: 'no-store' });
+      if (res.status === 401) {
+        /* ไม่มี/ผิดรหัส → กลับไปหน้ากรอกรหัสพร้อมบอกเหตุ ไม่ใช่ "ระบบล่ม" */
+        saveToken('');
+        showSetup('รหัสผ่านร้านไม่ถูกต้อง — กรอกค่าเดียวกับ SOD_TOKEN (Supabase) หรือ SHARED_TOKEN (Apps Script) แล้วกด “เข้าใช้งาน”');
+        el.token.focus();
+        el.foot.textContent = '';
+        return;
+      }
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       if (!data || data.ok === false) {
         const err = (data && data.error) || 'โหลดไม่สำเร็จ';
         if (err === 'unauthorized' || /SHARED_TOKEN/.test(err)) {
           el.notice.hidden = false;
+          if (err === 'unauthorized') saveToken('');
           showSetup(err === 'unauthorized'
-            ? 'รหัสผ่านร้านไม่ถูกต้อง — ตรวจ SHARED_TOKEN ใน Apps Script แล้วกรอกใหม่'
+            ? 'รหัสผ่านร้านไม่ถูกต้อง — กรอกใหม่ให้ตรงกับ SOD_TOKEN (Supabase) หรือ SHARED_TOKEN (Apps Script)'
             : err);
           return;
         }
@@ -444,7 +467,7 @@
       el.empty.hidden = true;
       el.stats.textContent = '';
       el.notice.hidden = false;
-      el.notice.textContent = 'โหลดรายการไม่สำเร็จ (' + err.message + ') — ตรวจว่า deploy เวอร์ชันล่าสุดแล้ว และ URL /exec ยังใช้ได้';
+      el.notice.textContent = 'โหลดรายการไม่สำเร็จ (' + friendlyError(err) + ') — ตรวจว่า webhook ใน data/menu.json ยังใช้ได้ และฟังก์ชันหลังบ้านตอบอยู่';
       el.foot.textContent = '';
     } finally {
       loading = false;
@@ -508,7 +531,7 @@
           ((data.changed || []).length ? ': ' + data.changed.join(', ') : ' (มีอยู่แล้ว)');
       } catch (err) {
         el.lockMsg.hidden = false;
-        el.lockMsg.textContent = 'ล็อคไม่สำเร็จ — ' + err.message;
+        el.lockMsg.textContent = 'ล็อคไม่สำเร็จ — ' + friendlyError(err);
       } finally {
         el.lockBtn.disabled = false;
       }
@@ -520,7 +543,7 @@
       if (!document.hidden && el.setup.hidden) load();
     }, AUTO_REFRESH_MS);
 
-    if (!readToken()) showSetup('กรอกรหัสผ่านร้านเพื่อดูรายการจอง (ต้องตรงกับ SHARED_TOKEN ใน Apps Script)');
+    if (!readToken()) showSetup('กรอกรหัสผ่านร้านเพื่อดูรายการจอง (ต้องตรงกับ SOD_TOKEN บน Supabase หรือ SHARED_TOKEN ใน Apps Script)');
     else load();
   }
 
