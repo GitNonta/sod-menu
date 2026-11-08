@@ -2931,7 +2931,8 @@ select.field__input {
 
 .plan__scroll {
   margin-top: 8px;
-  height: 42vh;
+  height: auto;
+  max-height: 62vh;
   min-height: 230px;
   overflow: auto;
   border: 1px solid var(--line-strong);
@@ -2941,16 +2942,17 @@ select.field__input {
   -webkit-overflow-scrolling: touch;
 }
 
+/* the whole plan is visible by default; the button enlarges it for a closer tap */
 .plan__canvas {
   position: relative;
-  width: 190%;
-  min-width: 540px;
+  width: 100%;
+  min-width: 0;
   transition: width 0.25s ease;
 }
 
-.plan__canvas.is-fit {
-  width: 100%;
-  min-width: 0;
+.plan__canvas.is-zoom {
+  width: 190%;
+  min-width: 540px;
 }
 
 .plan__img {

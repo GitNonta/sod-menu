@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.27';
+  const ASSET_VERSION = '1.0.28';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1533,9 +1533,10 @@
       pickTable(id);
     });
     el.planFit?.addEventListener('click', () => {
-      const fit = el.planCanvas.classList.toggle('is-fit');
-      el.planFit.textContent = fit ? 'ขยาย' : 'ย่อ/ขยาย';
-      el.planFit.setAttribute('aria-pressed', fit ? 'true' : 'false');
+      /* the plan opens full-size, so the button only ever zooms in and back */
+      const zoom = el.planCanvas.classList.toggle('is-zoom');
+      el.planFit.textContent = zoom ? 'ย่อผัง' : 'ขยายผัง';
+      el.planFit.setAttribute('aria-pressed', zoom ? 'true' : 'false');
     });
     el.reserveDate?.addEventListener('change', () => {
       pickedTables = [];
