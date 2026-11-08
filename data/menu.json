@@ -1,5 +1,5 @@
 {
-  "version": "1.0.19",
+  "version": "1.0.20",
   "shop": {
     "name": "SOD! signature",
     "currency": "฿",
@@ -22,7 +22,7 @@
       "close_time": "02:00",
       "max_party": 20,
       "max_days": 30,
-      "webhook": "https://tfplfctgyfiyxqekobet.supabase.co/functions/v1/rapid-worker",
+      "webhook": "https://tfplfctgyfiyxqekobet.supabase.co/functions/v1/sod-reserve",
       "line_url": "",
       "phone": "",
       "plan": {
