@@ -18,7 +18,7 @@
       if (localStorage.getItem('sod-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
     } catch (e) {}
   </script>
-  <link rel="stylesheet" href="./style.css?v=1.1.16" />
+  <link rel="stylesheet" href="./style.css?v=1.1.17" />
 </head>
 <body class="jnl-page">
   <header class="site-header">
@@ -233,11 +233,45 @@
               '</p>' +
               note +
             '</div>' +
-            statusBadge(row.status) +
+            '<div class="jnl__side">' +
+              statusBadge(row.status) +
+              (row.code
+                ? '<div class="jnl__acts">' +
+                    '<button class="jnl__act is-ok" type="button" data-code="' + escapeHTML(row.code) +
+                      '" data-status="ยืนยันแล้ว"' + (row.status === 'ยืนยันแล้ว' ? ' disabled' : '') + '>ยืนยัน</button>' +
+                    '<button class="jnl__act is-off" type="button" data-code="' + escapeHTML(row.code) +
+                      '" data-status="ยกเลิก"' + (row.status === 'ยกเลิก' ? ' disabled' : '') + '>ยกเลิก</button>' +
+                  '</div>'
+                : '') +
+            '</div>' +
           '</li>'
         );
       })
       .join('');
+
+    Array.prototype.forEach.call(el.list.querySelectorAll('.jnl__act'), function (btn) {
+      btn.addEventListener('click', function () {
+        setStatus(btn.dataset.code, btn.dataset.status, btn);
+      });
+    });
+  }
+
+  /* ── ยืนยัน/ยกเลิกการจอง — บันทึกลงฐานข้อมูลผ่าน webhook (ต้องมี token) ── */
+  async function setStatus(code, status, btn) {
+    if (!code || !status) return;
+    const group = btn.parentNode;
+    const buttons = group ? group.querySelectorAll('.jnl__act') : [];
+    Array.prototype.forEach.call(buttons, function (item) { item.disabled = true; });
+    el.notice.hidden = true;
+    try {
+      const data = await lockAction('set-status', { code: code, status: status });
+      el.foot.textContent = 'อัปเดต ' + code + ' → ' + (data.status || status) + ' แล้ว';
+      load();
+    } catch (err) {
+      Array.prototype.forEach.call(buttons, function (item) { item.disabled = false; });
+      el.notice.hidden = false;
+      el.notice.textContent = 'เปลี่ยนสถานะไม่สำเร็จ — ' + friendlyError(err);
+    }
   }
 
   /* ── table locks: the shop can close off a table for a day ── */

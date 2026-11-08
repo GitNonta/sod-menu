@@ -148,6 +148,7 @@ GET  ?action=list&date=…&token=…         → { ok, date, count, people, rows
 GET  ?action=locks&date=…&token=…        → { ok, date, locks:[{table,note,at}] }
 POST {…จอง…}                             → { ok, code, row } | { ok:true, duplicate:true }   (ไม่ต้อง token)
 POST { action:"lock"|"unlock", … }       → { ok, action, date, changed:[…], locks:[…] }     (ต้อง token)
+POST { action:"set-status", token, code, status } → { ok, code, status }              (ต้อง token)
 POST { events:[…] } (LINE webhook)        → { ok, line:"captured", to }                     (ไม่ต้อง token)
 ```
 

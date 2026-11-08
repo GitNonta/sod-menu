@@ -8,6 +8,7 @@
  *   GET   ?action=list&date=YYYY-MM-DD&token=…       รายการจองของวัน (ต้อง token)
  *   GET   ?action=locks&date=YYYY-MM-DD&token=…      โต๊ะที่ร้านล็อค (ต้อง token)
  *   POST  { action:'lock'|'unlock', token, date, tables:[], note }   (ต้อง token)
+ *   POST  { action:'set-status', token, code, status }                (ต้อง token)
  *   GET   ?action=linetest&token=…                   ส่งข้อความทดสอบเข้า LINE
  *   POST  body ที่มี "events" (LINE webhook)          จด groupId ลงตาราง settings
  *
@@ -303,6 +304,24 @@ async function handlePost(req: Request, params: URLSearchParams): Promise<Respon
       changed,
       locks: await locksOf(date),
     });
+  }
+
+  /* เปลี่ยนสถานะการจองจากหน้า today.html (ยืนยันแล้ว / ยกเลิก) */
+  if (action === 'set-status') {
+    if (!authorized(sent)) return json({ ok: false, error: 'unauthorized' }, 401);
+    const code = String(payload.code || '').slice(0, 24);
+    if (!code) return json({ ok: false, error: 'missing code' });
+    const status = String(payload.status || '');
+    if (!STATUSES.includes(status)) return json({ ok: false, error: 'invalid status' });
+    const res = await sb(`reservations?code=eq.${enc(code)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) return json({ ok: false, error: `db ${res.status}` }, 502);
+    const rows = Array.isArray(res.data) ? (res.data as Json[]) : [];
+    if (!rows.length) return json({ ok: false, error: 'not found' }, 404);
+    return json({ ok: true, service: 'sod-reserve', code, status });
   }
 
   /* จองใหม่ */

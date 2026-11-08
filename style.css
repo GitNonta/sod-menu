@@ -2818,6 +2818,48 @@ select.field__input {
   text-decoration: line-through;
 }
 
+/* ── badge + confirm/cancel buttons on the right of a booking row (today.html) ── */
+.jnl__side {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: start;
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
+.jnl__acts {
+  display: flex;
+  gap: 4px;
+}
+
+.jnl__act {
+  padding: 4px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--muted-strong);
+  cursor: pointer;
+}
+
+.jnl__act.is-ok:hover:not(:disabled) {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.jnl__act.is-off:hover:not(:disabled) {
+  background: var(--surface-soft);
+}
+
+.jnl__act:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .jnl__empty {
   margin: 14px 0 0;
   padding: 24px 0;
