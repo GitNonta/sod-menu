@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.37';
+  const ASSET_VERSION = '1.0.38';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -2143,6 +2143,54 @@
     }
   }
 
+  /* ── เปิดใบจองที่บันทึกไว้ในเครื่อง — ต้องถามหลังบ้านก่อนเสมอ
+     เดิมกด “การจองล่าสุด” แล้วขึ้นสถานะเหมือนจองสำเร็จ ทั้งที่ยังไม่ได้ชำระ
+     ตอนนี้ใช้ข้อมูลจริงจาก ?action=order (paid / expired / ยอดค้าง) เป็นตัวตัดสิน */
+  async function showSavedReserve() {
+    const last = readReserveRecord();
+    if (!last) return;
+    const webhook = reserveConfig().webhook;
+    let status = 'ยังไม่ยืนยันกับร้าน — ส่งข้อความทาง LINE หรือโทรหาร้านได้เลย';
+    let fee = null;
+    if (webhook && last.code) {
+      try {
+        const res = await fetch(`${webhook}?action=order&code=${encodeURIComponent(last.code)}`, { cache: 'no-store' });
+        const data = await res.json();
+        if (data && data.ok === false && /not found/.test(String(data.error || ''))) {
+          status = 'ไม่พบใบจองนี้ในระบบแล้ว (ถูกยกเลิกหรือหมดเวลาชำระ) — การจองยังไม่สำเร็จ กรุณาจองใหม่';
+        } else if (data && data.order) {
+          const order = data.order;
+          const due = Number(order.total) || 0;
+          if (order.paid || order.status === 'ยืนยันแล้ว') {
+            status = 'ชำระเงินแล้ว — การจองยืนยันสำเร็จ แสดงรหัสนี้กับพนักงานที่ร้าน';
+          } else if (order.expired) {
+            status = 'หมดเวลาชำระเงิน — การจองนี้ถูกยกเลิกและคืนโต๊ะแล้ว กรุณาจองใหม่';
+          } else if (due > 0) {
+            status = `รอชำระค่าบริการ ฿${due.toLocaleString('th-TH')} — ชำระและแนบสลิปด้านล่างเพื่อให้การจองสำเร็จ`;
+            fee = {
+              total: due,
+              amount: Number(order.amount) || due,
+              per: order.per || 'table',
+              pay: order.pay || '',
+              note: order.note || '',
+              expiresAt: order.expiresAt || '',
+              holdMinutes: Number(order.holdMinutes) || 15,
+            };
+          } else {
+            status = 'รอร้านยืนยันการจอง — ยังไม่มีการชำระเงินที่ต้องทำ';
+          }
+        }
+      } catch (err) {
+        console.warn('[reserve] saved order lookup failed:', err);
+      }
+    }
+    if (el.reserveSheet && el.reserveSheet.hidden) {
+      el.reserveSheet.hidden = false;
+      document.body.classList.add('has-sheet');
+    }
+    renderReserveDone(last, status, fee);
+  }
+
   function wireReserve() {
     if (!el.reserveSheet) return;
     el.reserveOpen?.addEventListener('click', openReserve);
@@ -2184,10 +2232,7 @@
     /* touching the summary means someone is reading it — keep it on screen */
     el.reserveDone?.addEventListener('pointerdown', stopReserveReturn);
     el.reserveDone?.addEventListener('keydown', stopReserveReturn);
-    el.reserveLast?.addEventListener('click', () => {
-      const last = readReserveRecord();
-      if (last) renderReserveDone(last, 'การจองนี้บันทึกไว้ในเครื่องคุณ — แสดงรหัสนี้กับพนักงานที่ร้านได้เลย');
-    });
+    el.reserveLast?.addEventListener('click', showSavedReserve);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && el.reserveSheet && !el.reserveSheet.hidden) closeReserve();
     });
