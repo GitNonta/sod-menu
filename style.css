@@ -3009,16 +3009,39 @@ select.field__input {
 }
 
 .plan__spot.is-picked {
-  border-color: #ffd166;
-  background: rgb(255 209 102 / 0.3);
-  box-shadow: 0 0 0 3px rgb(255 209 102 / 0.35);
+  border-color: #ffb000;
+  background: rgb(255 149 0 / 0.62);
+  box-shadow: 0 0 0 3px rgb(255 176 0 / 0.5);
 }
 
 .plan__spot.is-busy {
-  border-color: #ff5a5f;
-  background: rgb(214 40 48 / 0.72);
+  border-color: #ff2d34;
+  background: rgb(170 16 24 / 0.9);
   color: #fff;
   cursor: not-allowed;
+}
+
+/* A pentagon's fill is clipped with clip-path, and clip-path also throws away
+   box-shadow — that is why the tap looked colourless. The glow has to come from
+   a drop-shadow, which is painted around the clipped shape instead. */
+.plan__spot.is-shape-pentagon:active {
+  background: rgb(255 149 0 / 0.55);
+}
+
+.plan__spot.is-shape-pentagon.is-picked {
+  border-color: transparent;
+  background: rgb(255 149 0 / 0.92);
+  filter: drop-shadow(0 0 5px rgb(255 176 0 / 0.95));
+}
+
+.plan__spot.is-shape-pentagon.is-busy {
+  border-color: transparent;
+  background: rgb(150 12 20 / 0.96);
+  filter: drop-shadow(0 0 4px rgb(255 45 52 / 0.75));
+}
+
+.plan__spot.is-shape-pentagon.is-locked {
+  border-color: transparent;
 }
 
 /* closed off by the shop (admin lock) — hatched, so it reads differently from a booking */
