@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.20';
+  const ASSET_VERSION = '1.0.21';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -87,6 +87,7 @@
     reserveHint: $('reserveHint'),
     reserveLast: $('reserveLast'),
     reserveForm: $('reserveForm'),
+    reserveAuto: $('reserveAuto'),
     reserveName: $('rsvName'),
     reservePhone: $('rsvPhone'),
     reserveDate: $('rsvDate'),
@@ -1607,6 +1608,7 @@
     el.reserveForm.hidden = false;
     el.reserveDone.hidden = true;
     el.reserveErr.hidden = true;
+    stopReserveReturn();
     const now = new Date();
     el.reserveDate.min = isoDate(now);
     if (!el.reserveDate.value) {
@@ -1626,6 +1628,7 @@
 
   function closeReserve() {
     if (!el.reserveSheet || el.reserveSheet.hidden) return;
+    stopReserveReturn();
     el.reserveSheet.hidden = true;
     document.body.classList.remove('has-sheet');
     if (reserveReturnFocus && typeof reserveReturnFocus.focus === 'function') reserveReturnFocus.focus();
@@ -1703,6 +1706,55 @@
     if (tel) el.reserveCall.href = `tel:${tel}`;
     const panel = el.reserveSheet.querySelector('.sheet__panel');
     if (panel) panel.scrollTop = 0;
+    startReserveReturn();
+  }
+
+  /* After a booking the sheet parks on the summary so the guest can read the
+     code. The counter is walk-up, so the next guest gets the form back by
+     itself — unless someone touches the summary, which stops the countdown. */
+  const RESERVE_RETURN_MS = 10000;
+  let reserveTimer = 0;
+
+  function stopReserveReturn() {
+    if (reserveTimer) clearInterval(reserveTimer);
+    reserveTimer = 0;
+    if (el.reserveAuto) {
+      el.reserveAuto.hidden = true;
+      el.reserveAuto.textContent = '';
+    }
+  }
+
+  function startReserveReturn() {
+    if (!el.reserveAuto) return;
+    stopReserveReturn();
+    let left = Math.round(RESERVE_RETURN_MS / 1000);
+    const paint = () => {
+      el.reserveAuto.hidden = false;
+      el.reserveAuto.textContent = `กลับหน้าจองในอีก ${left} วินาที · แตะหน้านี้เพื่อหยุด`;
+    };
+    paint();
+    reserveTimer = setInterval(() => {
+      left -= 1;
+      if (left > 0) {
+        paint();
+        return;
+      }
+      resetReserveForm();
+    }, 1000);
+  }
+
+  function resetReserveForm() {
+    stopReserveReturn();
+    el.reserveDone.hidden = true;
+    el.reserveForm.hidden = false;
+    el.reserveErr.hidden = true;
+    el.reserveNote.value = '';
+    el.reserveSubmit.disabled = false;
+    el.reserveSubmit.textContent = 'ยืนยันการจอง';
+    pickedTables = [];
+    paintPlan();
+    loadPlanBusy();
+    el.reserveName.focus();
   }
 
   async function submitReserve(e) {
@@ -1784,18 +1836,10 @@
     el.reserveCopy?.addEventListener('click', () => {
       if (reserveCurrent) copyReserve(reserveCurrent);
     });
-    el.reserveAgain?.addEventListener('click', () => {
-      el.reserveDone.hidden = true;
-      el.reserveForm.hidden = false;
-      el.reserveErr.hidden = true;
-      el.reserveNote.value = '';
-      el.reserveSubmit.disabled = false;
-      el.reserveSubmit.textContent = 'ยืนยันการจอง';
-      pickedTables = [];
-      paintPlan();
-      loadPlanBusy();
-      el.reserveName.focus();
-    });
+    el.reserveAgain?.addEventListener('click', resetReserveForm);
+    /* touching the summary means someone is reading it — keep it on screen */
+    el.reserveDone?.addEventListener('pointerdown', stopReserveReturn);
+    el.reserveDone?.addEventListener('keydown', stopReserveReturn);
     el.reserveLast?.addEventListener('click', () => {
       const last = readReserveRecord();
       if (last) renderReserveDone(last, 'การจองนี้บันทึกไว้ในเครื่องคุณ — แสดงรหัสนี้กับพนักงานที่ร้านได้เลย');

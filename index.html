@@ -31,7 +31,7 @@
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700;900&display=swap" /></noscript>
   <!-- bump the ?v= stamp whenever style.css or app.js changes: GitHub Pages
        caches both for 10 minutes, so a returning visitor would keep the old design -->
-  <link rel="stylesheet" href="./style.css?v=1.1.20" />
+  <link rel="stylesheet" href="./style.css?v=1.1.21" />
 </head>
 <body>
   <!-- ── Intro animation (skippable) ───────────────────────────── -->
@@ -277,6 +277,7 @@
         <p class="reserve__code" id="reserveCode">SOD-0000</p>
         <dl class="reserve__summary" id="reserveSummary"></dl>
         <p class="reserve__status" id="reserveStatus" role="status"></p>
+        <p class="reserve__auto" id="reserveAuto" role="status" hidden></p>
         <div class="reserve__actions">
           <a class="reserve__action reserve__action--primary" id="reserveShare" href="https://line.me/R/share" target="_blank" rel="noopener">ส่งให้ร้านทาง LINE</a>
           <a class="reserve__action" id="reserveCall" href="tel:" hidden>โทรหาร้าน</a>
@@ -290,6 +291,6 @@
   <button class="to-top" id="toTop" type="button" aria-label="กลับขึ้นด้านบน" hidden>↑</button>
   <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
 
-  <script src="./app.js?v=1.1.20" defer></script>
+  <script src="./app.js?v=1.1.21" defer></script>
 </body>
 </html>
