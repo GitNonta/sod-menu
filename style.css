@@ -3123,28 +3123,46 @@ select.field__input {
   color: var(--muted-strong);
 }
 
+/* the notice is painted right on the map sheet, not below it */
+.plan__stage {
+  position: relative;
+}
+
 .plan__closed {
-  margin-top: 8px;
-  padding: 10px 12px;
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px 18px;
   border: 1px solid #ff2d34;
   border-radius: var(--radius);
-  background: rgb(150 12 20 / 0.94);
+  background: rgb(150 12 20 / 0.9);
   color: #fff;
   text-align: center;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
+}
+
+.plan__closed[hidden] {
+  display: none;
 }
 
 .plan__closed-title {
   margin: 0;
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 800;
   line-height: 1.4;
 }
 
 .plan__closed-sub {
   margin: 4px 0 0;
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   line-height: 1.5;
-  opacity: 0.92;
+  opacity: 0.94;
 }
 
 .plan__status {
