@@ -146,11 +146,14 @@ GET  ?action=busy&date=YYYY-MM-DD        → { ok, date, busy:[{table,time}] }
                                             โต๊ะที่ร้านล็อค: { table, time:"", note, locked:true }
 GET  ?action=list&date=…&token=…         → { ok, date, count, people, rows:[{code,name,phone,date,time,party,note,status,table,created_at}] }
 GET  ?action=locks&date=…&token=…        → { ok, date, locks:[{table,note,at}] }
-POST {…จอง…}                             → { ok, code, row } | { ok:true, duplicate:true }   (ไม่ต้อง token)
+POST {…จอง…}                             → { ok, code, status, row } | { ok:true, duplicate:true }   (ไม่ต้อง token)
 POST { action:"lock"|"unlock", … }       → { ok, action, date, changed:[…], locks:[…] }     (ต้อง token)
 POST { action:"set-status", token, code, status } → { ok, code, status }              (ต้อง token)
 POST { events:[…] } (LINE webhook)        → { ok, line:"captured", to }                     (ไม่ต้อง token)
 ```
+
+> การจองใหม่ถูกตั้งสถานะ **ยืนยันแล้ว** ให้อัตโนมัติ (`status` ในคำตอบ) — ไม่ต้องกดยืนยันใน `today.html`
+> ถ้าอยากตรวจก่อนค่อยยืนยัน ตั้ง secret `AUTO_CONFIRM=off` แล้วการจองจะเข้าเป็น **รอยืนยัน** ตามเดิม
 
 ## 9. อาการผิด → แก้
 

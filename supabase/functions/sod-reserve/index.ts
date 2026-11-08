@@ -17,6 +17,7 @@
  *
  * Secrets ที่ต้องตั้ง (Dashboard → Edge Functions → Secrets หรือ `supabase secrets set`):
  *   SOD_TOKEN            รหัสผ่านร้าน ใช้แทน SHARED_TOKEN
+ *   AUTO_CONFIRM         'off' = การจองเข้าเป็น 'รอยืนยัน' ให้คนกดยืนยันเอง (ไม่ตั้ง = ยืนยันอัตโนมัติ)
  *   LINE_CHANNEL_TOKEN   channel access token (ไม่ใส่ = ข้ามการแจ้งเตือน)
  *   LINE_TO              groupId/roomId/userId (ถ้าไม่ใส่ จะอ่านจากตาราง settings)
  *   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY  มีให้อัตโนมัติเมื่อรันบน Supabase
@@ -32,6 +33,10 @@ const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.
 const SB_URL = (Deno.env.get('SUPABASE_URL') || '').replace(/\/+$/, '');
 const SB_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 const SOD_TOKEN = (Deno.env.get('SOD_TOKEN') || '').trim();
+/* การจองที่ส่งมาให้ยืนยันทันที (ร้านไม่ต้องกดยืนยันใน today.html)
+   อยากตรวจก่อนค่อยตั้ง secret AUTO_CONFIRM=off → การจองจะเข้าเป็น 'รอยืนยัน' */
+const AUTO_CONFIRM = (Deno.env.get('AUTO_CONFIRM') || 'on').trim().toLowerCase() !== 'off';
+const BOOKING_STATUS = AUTO_CONFIRM ? STATUSES[1] : STATUSES[0];
 
 const CORS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -337,7 +342,7 @@ async function handlePost(req: Request, params: URLSearchParams): Promise<Respon
     time: String(payload.time).slice(0, 5),
     party: Number(payload.party) || 1,
     note: String(payload.note || '').slice(0, 200),
-    status: STATUSES[0],
+    status: BOOKING_STATUS,
     table_label: String(payload.table || '').toUpperCase().slice(0, 40),
   };
 
@@ -362,7 +367,7 @@ async function handlePost(req: Request, params: URLSearchParams): Promise<Respon
 
   /* แจ้งเข้ากลุ่ม LINE — ล้มเหลวก็ไม่ทำให้การจองหาย */
   await notifyLine(payload);
-  return json({ ok: true, code, row: 1 });
+  return json({ ok: true, code, status: BOOKING_STATUS, row: 1 });
 }
 
 /* ── GET ───────────────────────────────────────────────────── */
