@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.32';
+  const ASSET_VERSION = '1.0.33';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -88,6 +88,10 @@
     reserveLast: $('reserveLast'),
     reserveForm: $('reserveForm'),
     reserveAuto: $('reserveAuto'),
+    reservePay: $('reservePay'),
+    reservePayAmount: $('reservePayAmount'),
+    reservePayHow: $('reservePayHow'),
+    reservePayCopy: $('reservePayCopy'),
     reserveName: $('rsvName'),
     reservePhone: $('rsvPhone'),
     reserveDate: $('rsvDate'),
@@ -108,6 +112,7 @@
     planCanvas: $('planCanvas'),
     planScroll: $('planScroll'),
     planStatus: $('planStatus'),
+    planFee: $('planFee'),
     planPick: $('planPick'),
     planFit: $('planFit'),
   };
@@ -1272,6 +1277,8 @@
   /* the shop can close a day: a daily cut-off time, or an event that locks it */
   let planClosed = { closed: false, reason: '', closeTime: '', event: null };
   let planClosedTimer = 0;
+  /* ค่าบริการจองของวันที่เลือก (ศุกร์/เสาร์/อีเว้น) — มาจาก ?action=busy */
+  let planFee = null;
 
   function reserveConfig() {
     const raw = (state.data && state.data.shop && state.data.shop.reserve) || {};
@@ -1422,6 +1429,22 @@
     return `เปิดให้จองในอีก ${parts.join(' ')}${openLine}`;
   }
 
+  /* บอกค่าบริการก่อนกดจอง — เฉพาะศุกร์/เสาร์/วันอีเว้น */
+  function renderPlanFee() {
+    if (!el.planFee) return;
+    if (!planFee || !planFee.needed || !(Number(planFee.amount) > 0)) {
+      el.planFee.hidden = true;
+      el.planFee.textContent = '';
+      return;
+    }
+    const unit = planFee.per === 'booking' ? 'ต่อการจอง' : 'ต่อคน';
+    el.planFee.hidden = false;
+    el.planFee.textContent =
+      `${planFee.label || 'วันนี้'} มีค่าบริการจอง ฿${planFee.amount} ${unit}` +
+      (planFee.pay ? ` · โอนที่ ${planFee.pay}` : '') +
+      ' · โอนแล้วรอร้านยืนยัน';
+  }
+
   function renderPlanClosed() {
     if (planClosedTimer) {
       clearInterval(planClosedTimer);
@@ -1567,6 +1590,7 @@
         closeTime: String((data && data.closeTime) || ''),
         event: (data && data.event) || null,
       };
+      planFee = (data && data.fee) || null;
       if (planClosed.closed) pickedTables = [];
     } catch (err) {
       /* the map still works without occupancy — every table stays tappable */
@@ -1575,6 +1599,7 @@
       planLocks = prevLocks;
     }
     renderPlanClosed();
+    renderPlanFee();
     paintPlan();
   }
 
@@ -1773,7 +1798,7 @@
     };
   }
 
-  function renderReserveDone(rec, status) {
+  function renderReserveDone(rec, status, fee) {
     reserveCurrent = rec;
     el.reserveForm.hidden = true;
     el.reserveDone.hidden = false;
@@ -1790,13 +1815,29 @@
       .map(([k, v]) => `<div class="reserve__row"><dt>${escapeHTML(k)}</dt><dd>${escapeHTML(String(v))}</dd></div>`)
       .join('');
     el.reserveStatus.textContent = status;
+    /* มีค่าบริการ = ต้องโชว์ยอดให้โอน และไม่เด้งกลับฟอร์มตามเวลา (ลูกค้าต้องมีเวลาจ่าย) */
+    const due = fee && Number(fee.total) > 0 ? Number(fee.total) : 0;
+    if (el.reservePay) {
+      el.reservePay.hidden = !due;
+      if (due) {
+        el.reservePayAmount.textContent = `฿${due.toLocaleString('th-TH')}`;
+        el.reservePayHow.textContent = [
+          fee.pay ? `โอนที่ ${fee.pay}` : 'โอนตามช่องทางที่ร้านแจ้ง',
+          fee.note || '',
+          `โอนแล้วส่งสลิปทาง LINE พร้อมรหัส ${rec.code}`,
+        ]
+          .filter(Boolean)
+          .join(' · ');
+      }
+    }
     el.reserveShare.href = reserveLineHref(rec);
     const tel = String(reserveConfig().phone || '').replace(/[^\d+]/g, '');
     el.reserveCall.hidden = !tel;
     if (tel) el.reserveCall.href = `tel:${tel}`;
     const panel = el.reserveSheet.querySelector('.sheet__panel');
     if (panel) panel.scrollTop = 0;
-    startReserveReturn();
+    if (due) stopReserveReturn();
+    else startReserveReturn();
   }
 
   /* After a booking the sheet parks on the summary so the guest can read the
@@ -1838,6 +1879,7 @@
     el.reserveDone.hidden = true;
     el.reserveForm.hidden = false;
     el.reserveErr.hidden = true;
+    if (el.reservePay) el.reservePay.hidden = true;
     el.reserveNote.value = '';
     el.reserveSubmit.disabled = false;
     el.reserveSubmit.textContent = 'ยืนยันการจอง';
@@ -1863,6 +1905,7 @@
     saveReserveRecord(rec);
 
     let status = 'บันทึกการจองไว้ในเครื่องนี้แล้ว — ส่งข้อความให้ร้านทาง LINE เพื่อยืนยันได้เลย';
+    let fee = null;
     if (cfg.webhook) {
       try {
         /* text/plain keeps the request "simple", so the browser skips the CORS
@@ -1882,7 +1925,12 @@
           /* older deployments answer with plain text; a 2xx is enough then */
         }
         if (answer && answer.ok === false) throw new Error(answer.error || 'receiver rejected');
-        status = `ส่งคำขอถึงร้านแล้ว — รอร้านติดต่อกลับที่ ${rec.phone}`;
+        if (answer && answer.fee && Number(answer.fee.total) > 0) {
+          fee = answer.fee;
+          status = `รอชำระค่าบริการ ฿${Number(answer.fee.total).toLocaleString('th-TH')} — ร้านจะยืนยันการจองหลังได้รับเงิน`;
+        } else {
+          status = `ส่งคำขอถึงร้านแล้ว — รอร้านติดต่อกลับที่ ${rec.phone}`;
+        }
       } catch (err) {
         console.error('[reserve] webhook failed:', err);
         status = 'ส่งอัตโนมัติไม่สำเร็จ — กรุณาส่งข้อความทาง LINE หรือโทรหาร้าน';
@@ -1891,7 +1939,7 @@
 
     el.reserveSubmit.disabled = false;
     el.reserveSubmit.textContent = 'ยืนยันการจอง';
-    renderReserveDone(rec, status);
+    renderReserveDone(rec, status, fee);
     syncReserveUI();
     toast('ได้รับคำขอจองแล้ว · ' + rec.code);
   }
@@ -1931,6 +1979,15 @@
       if (reserveCurrent) copyReserve(reserveCurrent);
     });
     el.reserveAgain?.addEventListener('click', resetReserveForm);
+    el.reservePayCopy?.addEventListener('click', async () => {
+      const text = [el.reservePayAmount.textContent, el.reservePayHow.textContent].filter(Boolean).join('\n');
+      try {
+        await navigator.clipboard.writeText(text);
+        toast('คัดลอกข้อมูลชำระเงินแล้ว');
+      } catch (_) {
+        toast('คัดลอกไม่สำเร็จ — เลือกข้อความด้วยตัวเอง');
+      }
+    });
     /* touching the summary means someone is reading it — keep it on screen */
     el.reserveDone?.addEventListener('pointerdown', stopReserveReturn);
     el.reserveDone?.addEventListener('keydown', stopReserveReturn);

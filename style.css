@@ -2488,6 +2488,59 @@ select.field__input {
   opacity: 0.6;
 }
 
+/* ค่าบริการจอง: บอกก่อนกดจอง และโชว์ยอดให้โอนหลังจอง */
+.plan__fee {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border: 1px solid #f0b429;
+  border-radius: var(--radius-sm);
+  background: rgb(240 180 41 / 0.12);
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.reserve__pay {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #f0b429;
+  border-radius: var(--radius);
+  background: rgb(240 180 41 / 0.14);
+}
+
+.reserve__pay-title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.reserve__pay-amount {
+  margin: 4px 0 0;
+  font-size: 1.4rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.reserve__pay-how {
+  margin: 6px 0 10px;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.jnl__pay {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #a1480b;
+}
+
+.jnl__pay.is-paid {
+  color: #1c7a4a;
+}
+
 .reserve__done {
   margin-top: 12px;
   animation: cardRise 0.42s cubic-bezier(0.16, 1, 0.3, 1) backwards;

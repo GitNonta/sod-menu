@@ -18,7 +18,7 @@
       if (localStorage.getItem('sod-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
     } catch (e) {}
   </script>
-  <link rel="stylesheet" href="./style.css?v=1.1.32" />
+  <link rel="stylesheet" href="./style.css?v=1.1.33" />
 </head>
 <body class="jnl-page">
   <header class="site-header">
@@ -106,6 +106,23 @@
       <p class="jnl__notice" id="jnlSchedMsg" role="status" hidden></p>
       <ul class="jnl__lock-list" id="jnlEvList"></ul>
       <p class="jnl__lock-empty" id="jnlEvEmpty" hidden>ยังไม่มีวันอีเว้นที่ตั้งไว้</p>
+
+      <h2 class="jnl__lock-title">ค่าบริการจอง (ศุกร์ · เสาร์ · วันอีเว้น)</h2>
+      <p class="jnl__lock-note">
+        เปิดแล้ว: ลูกค้าที่จองวันศุกร์ วันเสาร์ หรือวันอีเว้น ต้องชำระก่อน ร้านจึงกดยืนยัน
+        (วันอื่นไม่เก็บ) — รับเงินแล้วกด “ชำระแล้ว” ในรายการจองด้านบน
+      </p>
+      <label class="jnl__ev-lock"><input type="checkbox" id="jnlFeeOn" /> เก็บค่าบริการ</label>
+      <form class="jnl__lock-form" id="jnlFeeForm">
+        <input class="field__input" id="jnlFeeAmount" type="number" min="0" max="100000" step="10" placeholder="ค่าบริการ (บาท)" aria-label="ค่าบริการ (บาท)" />
+        <select class="field__input" id="jnlFeePer" aria-label="คิดค่าบริการต่ออะไร">
+          <option value="person">ต่อคน</option>
+          <option value="booking">ต่อการจอง</option>
+        </select>
+        <input class="field__input" id="jnlFeePay" type="text" maxlength="160" placeholder="โอนที่ เช่น PromptPay 081-234-5678 (SOD)" aria-label="ช่องทางชำระเงิน" />
+        <input class="field__input" id="jnlFeeNote" type="text" maxlength="160" placeholder="หมายเหตุ เช่น โอนแล้วส่งสลิปใน LINE" aria-label="หมายเหตุการชำระ" />
+        <button class="jnl__save" id="jnlFeeBtn" type="submit">บันทึกค่าบริการ</button>
+      </form>
     </section>
   </main>
 
@@ -165,6 +182,13 @@
     evBtn: document.getElementById('jnlEvBtn'),
     evList: document.getElementById('jnlEvList'),
     evEmpty: document.getElementById('jnlEvEmpty'),
+    feeForm: document.getElementById('jnlFeeForm'),
+    feeOn: document.getElementById('jnlFeeOn'),
+    feeAmount: document.getElementById('jnlFeeAmount'),
+    feePer: document.getElementById('jnlFeePer'),
+    feePay: document.getElementById('jnlFeePay'),
+    feeNote: document.getElementById('jnlFeeNote'),
+    feeBtn: document.getElementById('jnlFeeBtn'),
   };
 
   function escapeHTML(value) {
@@ -274,6 +298,10 @@
               '<p class="jnl__meta">' + phone +
                 (phone ? ' · ' : '') +
                 '<span class="jnl__code">' + escapeHTML(row.code || '') + '</span>' +
+                (row.fee > 0
+                  ? '<span class="jnl__pay' + (row.paid ? ' is-paid' : '') + '">' +
+                    (row.paid ? 'ชำระแล้ว ฿' : 'รอชำระ ฿') + escapeHTML(String(row.fee)) + '</span>'
+                  : '') +
               '</p>' +
               note +
             '</div>' +
@@ -281,6 +309,9 @@
               statusBadge(row.status) +
               (row.code
                 ? '<div class="jnl__acts">' +
+                    (row.fee > 0 && !row.paid
+                      ? '<button class="jnl__act is-ok" type="button" data-code="' + escapeHTML(row.code) + '" data-paid="1">ชำระแล้ว</button>'
+                      : '') +
                     '<button class="jnl__act is-ok" type="button" data-code="' + escapeHTML(row.code) +
                       '" data-status="ยืนยันแล้ว"' + (row.status === 'ยืนยันแล้ว' ? ' disabled' : '') + '>ยืนยัน</button>' +
                     '<button class="jnl__act is-off" type="button" data-code="' + escapeHTML(row.code) +
@@ -295,9 +326,31 @@
 
     Array.prototype.forEach.call(el.list.querySelectorAll('.jnl__act'), function (btn) {
       btn.addEventListener('click', function () {
+        if (btn.dataset.paid) {
+          markPaid(btn.dataset.code, btn);
+          return;
+        }
         setStatus(btn.dataset.code, btn.dataset.status, btn);
       });
     });
+  }
+
+  /* ── ลูกค้าโอนค่าบริการแล้ว: ยืนยันการจองให้เลย ── */
+  async function markPaid(code, btn) {
+    if (!code) return;
+    const group = btn.parentNode;
+    const buttons = group ? group.querySelectorAll('.jnl__act') : [];
+    Array.prototype.forEach.call(buttons, function (item) { item.disabled = true; });
+    el.notice.hidden = true;
+    try {
+      await lockAction('mark-paid', { code: code });
+      el.foot.textContent = 'รับชำระ ' + code + ' แล้ว — ยืนยันการจองเรียบร้อย';
+      load();
+    } catch (err) {
+      Array.prototype.forEach.call(buttons, function (item) { item.disabled = false; });
+      el.notice.hidden = false;
+      el.notice.textContent = 'บันทึกการชำระไม่สำเร็จ — ' + friendlyError(err);
+    }
   }
 
   /* ── ยืนยัน/ยกเลิกการจอง — บันทึกลงฐานข้อมูลผ่าน webhook (ต้องมี token) ── */
@@ -570,6 +623,12 @@
 
   function renderSchedule() {
     if (sched.close) sched.close.value = schedule.closeTime || '';
+    const fee = schedule.fee || {};
+    if (sched.feeOn) sched.feeOn.checked = !!fee.enabled;
+    if (sched.feeAmount) sched.feeAmount.value = fee.amount ? String(fee.amount) : '';
+    if (sched.feePer) sched.feePer.value = fee.per === 'booking' ? 'booking' : 'person';
+    if (sched.feePay) sched.feePay.value = fee.pay || '';
+    if (sched.feeNote) sched.feeNote.value = fee.note || '';
     if (sched.evList) {
       const rows = schedule.events.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
       sched.evList.innerHTML = rows
@@ -603,11 +662,27 @@
       if (!res.ok) return;
       const data = await res.json();
       if (!data || data.ok === false) return;
-      schedule = { closeTime: String(data.closeTime || ''), events: (data.events || []).slice() };
+      schedule = {
+        closeTime: String(data.closeTime || ''),
+        events: (data.events || []).slice(),
+        fee: data.fee || null,
+      };
       renderSchedule();
     } catch (err) {
       console.warn('[today] schedule failed:', err);
     }
+  }
+
+  /* ค่าบริการ: อ่านจากฟอร์ม (ช่องเดียวกับที่แสดงอยู่) */
+  function readFeeForm() {
+    if (!sched.feeAmount) return schedule.fee || null;
+    return {
+      enabled: !!(sched.feeOn && sched.feeOn.checked),
+      amount: Number(sched.feeAmount.value) || 0,
+      per: sched.feePer ? sched.feePer.value : 'person',
+      pay: sched.feePay ? sched.feePay.value.trim() : '',
+      note: sched.feeNote ? sched.feeNote.value.trim() : '',
+    };
   }
 
   async function saveSchedule(done) {
@@ -616,8 +691,13 @@
       const data = await lockAction('save-config', {
         closeTime: sched.close ? sched.close.value || '' : '',
         events: schedule.events,
+        fee: readFeeForm(),
       });
-      schedule = { closeTime: String(data.closeTime || ''), events: (data.events || []).slice() };
+      schedule = {
+        closeTime: String(data.closeTime || ''),
+        events: (data.events || []).slice(),
+        fee: data.fee || null,
+      };
       renderSchedule();
       schedSay(done);
     } catch (err) {
@@ -717,6 +797,16 @@
         sched.evBtn.disabled = false;
         sched.evName.value = '';
         sched.evOpen.value = '';
+      });
+    });
+    sched.feeForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      const fee = readFeeForm();
+      sched.feeBtn.disabled = true;
+      saveSchedule(fee.enabled && fee.amount > 0
+        ? 'เปิดค่าบริการ ฿' + fee.amount + (fee.per === 'booking' ? ' ต่อการจอง' : ' ต่อคน') + ' สำหรับศุกร์/เสาร์/วันอีเว้น'
+        : 'ปิดค่าบริการจองแล้ว').then(function () {
+        sched.feeBtn.disabled = false;
       });
     });
 

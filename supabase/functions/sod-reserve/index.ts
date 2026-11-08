@@ -41,7 +41,7 @@ const SOD_TOKEN = (Deno.env.get('SOD_TOKEN') || '').trim();
 const AUTO_CONFIRM = (Deno.env.get('AUTO_CONFIRM') || 'on').trim().toLowerCase() !== 'off';
 const BOOKING_STATUS = AUTO_CONFIRM ? STATUSES[1] : STATUSES[0];
 /* ตราประทับบิลด์ — `?action=status` ตอบค่านี้กลับไป จะรู้ทันทีว่า deploy ใหม่ขึ้นหรือยัง */
-const BUILD = '2026-11-08.4';
+const BUILD = '2026-11-08.5';
 
 const CORS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -89,7 +89,19 @@ const enc = (value: string) => encodeURIComponent(value);
    EVENTS     = JSON [{ date, name, open, lock }] — lock:true = วันนั้นปิดการจองทั้งวัน
                 open = เวลาร้านเปิดหลังงาน (งานสทาปปารตี้ = 00:30) */
 type ShopEvent = { date: string; name: string; lock: boolean; open: string };
-type ShopConfig = { closeTime: string; events: ShopEvent[] };
+/* ค่าบริการจอง: เก็บเฉพาะวันศุกร์/เสาร์/วันอีเว้น (ตั้งใน today.html) */
+type ShopFee = { enabled: boolean; amount: number; per: string; pay: string; note: string };
+type ShopConfig = { closeTime: string; events: ShopEvent[]; fee: ShopFee };
+
+type FeeState = {
+  needed: boolean;
+  amount: number;
+  per: string;
+  reason: string;
+  label: string;
+  pay: string;
+  note: string;
+};
 
 /** ร้านปิดรับจองทุกวันสองทุ่ม จนกว่าจะแก้ใน today.html */
 const DEFAULT_CLOSE_TIME = '20:00';
@@ -133,6 +145,20 @@ function cleanEvents(raw: unknown): ShopEvent[] {
     .filter((row) => /^\d{4}-\d{2}-\d{2}$/.test(row.date) && row.name.length > 0);
 }
 
+const DEFAULT_FEE: ShopFee = { enabled: false, amount: 0, per: 'person', pay: '', note: '' };
+
+function cleanFee(raw: unknown): ShopFee {
+  const row = (raw || {}) as Json;
+  const amount = Math.max(0, Math.min(100000, Math.round(Number(row.amount) || 0)));
+  return {
+    enabled: row.enabled !== false && amount > 0,
+    amount,
+    per: row.per === 'booking' ? 'booking' : 'person',
+    pay: String(row.pay || '').trim().slice(0, 160),
+    note: String(row.note || '').trim().slice(0, 160),
+  };
+}
+
 async function shopConfig(): Promise<ShopConfig> {
   const [closeRaw, eventsRaw] = await Promise.all([settingGet('CLOSE_TIME'), settingGet('EVENTS')]);
   let events: ShopEvent[] = [];
@@ -144,7 +170,45 @@ async function shopConfig(): Promise<ShopConfig> {
   /* ไม่มีแถวในฐานข้อมูล = ปิดทุกวัน 20:00 ตามค่ามาตรฐานของร้าน
      แต่ถ้าร้านลบเวลาออกเอง (ค่าว่าง) = รับจองตลอดวัน */
   const stored = closeRaw === null ? DEFAULT_CLOSE_TIME : closeRaw.trim();
-  return { closeTime: /^\d{2}:\d{2}$/.test(stored) ? stored : '', events };
+  const feeRaw = await settingGet('FEE');
+  let fee = DEFAULT_FEE;
+  if (feeRaw) {
+    try {
+      fee = cleanFee(JSON.parse(feeRaw));
+    } catch {
+      fee = DEFAULT_FEE;
+    }
+  }
+  return { closeTime: /^\d{2}:\d{2}$/.test(stored) ? stored : '', events, fee };
+}
+
+/** 0 = อาทิตย์ … 5 = ศุกร์, 6 = เสาร์ ตามเวลาไทย */
+function bkkWeekday(date: string): number {
+  const start = Date.parse(`${date}T00:00:00+07:00`);
+  if (Number.isNaN(start)) return -1;
+  return new Date(start + 7 * 3600000).getUTCDay();
+}
+
+/** วันนั้นมีค่าบริการจองหรือไม่ — ศุกร์/เสาร์ และวันอีเว้นทุกวัน */
+function feeOf(date: string, cfg: ShopConfig): FeeState {
+  const fee = cfg.fee;
+  const off: FeeState = { needed: false, amount: 0, per: fee.per, reason: '', label: '', pay: fee.pay, note: fee.note };
+  if (!fee.enabled || fee.amount <= 0) return off;
+  const day = bkkWeekday(date);
+  const event = cfg.events.find((row) => row.date === date) || null;
+  let reason = '';
+  if (day === 5) reason = 'friday';
+  else if (day === 6) reason = 'saturday';
+  if (event) reason = 'event';
+  if (!reason) return off;
+  const label = reason === 'friday'
+    ? 'วันศุกร์'
+    : reason === 'saturday'
+      ? 'วันเสาร์'
+      : event && event.name
+        ? `อีเว้น ${event.name}`
+        : 'วันอีเว้น';
+  return { needed: true, amount: fee.amount, per: fee.per, reason, label, pay: fee.pay, note: fee.note };
 }
 
 /** วันนั้นปิดรับจองหรือยัง — อีเว้นที่ล็อคชนะเวลาปิดจองเสมอ */
@@ -225,7 +289,7 @@ async function listOf(rawDate: unknown): Promise<Response> {
   const date = dayStr(rawDate);
   const res = await sb(
     `reservations?date=eq.${enc(date)}` +
-      `&select=code,name,phone,date,time,party,note,status,table_label,created_at&order=time.asc`,
+      `&select=code,name,phone,date,time,party,note,status,table_label,created_at,fee,paid&order=time.asc`,
   );
   if (!res.ok) return json({ ok: false, error: `db ${res.status}` }, 502);
   const rows = (Array.isArray(res.data) ? (res.data as Json[]) : []).map((row) => ({
@@ -239,6 +303,9 @@ async function listOf(rawDate: unknown): Promise<Response> {
     status: String(row.status || STATUSES[0]),
     table: String(row.table_label || '').toUpperCase(),
     created_at: bkkStamp(row.created_at),
+    /* ค่าบริการที่ต้องเก็บของแถวนี้ (0 = ไม่มี) และชำระแล้วหรือยัง */
+    fee: Number(row.fee) || 0,
+    paid: row.paid !== false,
   }));
   const people = rows.reduce((sum, r) => sum + (r.party || 0), 0);
   return json({ ok: true, service: 'sod-reserve', date, count: rows.length, people, rows });
@@ -269,6 +336,7 @@ async function busyOf(rawDate: unknown): Promise<Response> {
     closeTime: cfg.closeTime,
     event: state.event,
     events: cfg.events.filter((row) => row.date >= date).slice(0, 5),
+    fee: feeOf(date, cfg),
     now: new Date().toISOString(),
   });
 }
@@ -292,6 +360,9 @@ function lineMessage(p: Json): string {
     String(p.phone || ''),
   ];
   if (p.note) out.push(`หมายเหตุ: ${String(p.note).slice(0, 80)}`);
+  if (Number(p.fee) > 0) {
+    out.push(`💰 ค่าบริการ ${String(p.feeLabel || '')} ฿${Number(p.fee)} — ${p.feePay ? String(p.feePay).slice(0, 60) : 'รอชำระ'}`);
+  }
   out.push(`รหัส ${String(p.code || '')}`);
   return out.filter(Boolean).join('\n');
 }
@@ -425,10 +496,13 @@ async function handlePost(req: Request, params: URLSearchParams): Promise<Respon
       if (!removed.length) return json({ ok: false, error: 'not found' }, 404);
       return json({ ok: true, service: 'sod-reserve', code, status, deleted: true });
     }
+    /* ยืนยันแล้ว = ร้านรับเงินแล้วด้วย (ถ้ามีค่าบริการ) */
+    const patch: Json = { status };
+    if (status === STATUSES[1]) patch.paid = true;
     const res = await sb(`reservations?code=eq.${enc(code)}`, {
       method: 'PATCH',
       headers: { Prefer: 'return=representation' },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(patch),
     });
     if (!res.ok) return json({ ok: false, error: `db ${res.status}` }, 502);
     const rows = Array.isArray(res.data) ? (res.data as Json[]) : [];
@@ -436,17 +510,35 @@ async function handlePost(req: Request, params: URLSearchParams): Promise<Respon
     return json({ ok: true, service: 'sod-reserve', code, status });
   }
 
-  /* เวลาปิดจอง + วันอีเว้น (ตั้งจาก today.html) */
+  /* ลูกค้าโอนค่าบริการแล้ว → ร้านกด “ชำระแล้ว” ใน today.html */
+  if (action === 'mark-paid') {
+    if (!authorized(sent)) return json({ ok: false, error: 'unauthorized' }, 401);
+    const code = String(payload.code || '').slice(0, 24);
+    if (!code) return json({ ok: false, error: 'missing code' });
+    const res = await sb(`reservations?code=eq.${enc(code)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ paid: true, status: STATUSES[1] }),
+    });
+    if (!res.ok) return json({ ok: false, error: `db ${res.status}` }, 502);
+    const rows = Array.isArray(res.data) ? (res.data as Json[]) : [];
+    if (!rows.length) return json({ ok: false, error: 'not found' }, 404);
+    return json({ ok: true, service: 'sod-reserve', code, status: STATUSES[1], paid: true });
+  }
+
+  /* เวลาปิดจอง + วันอีเว้น + ค่าบริการ (ตั้งจาก today.html) */
   if (action === 'save-config') {
     if (!authorized(sent)) return json({ ok: false, error: 'unauthorized' }, 401);
     const closeTime = String(payload.closeTime ?? '').trim();
     if (closeTime && !/^\d{2}:\d{2}$/.test(closeTime)) return json({ ok: false, error: 'invalid closeTime' });
     const events = cleanEvents(payload.events);
     if (events.length > 60) return json({ ok: false, error: 'too many events' });
+    const fee = payload.fee === undefined ? (await shopConfig()).fee : cleanFee(payload.fee);
     const savedClose = await settingSet('CLOSE_TIME', closeTime);
     const savedEvents = await settingSet('EVENTS', JSON.stringify(events));
-    if (!savedClose || !savedEvents) return json({ ok: false, error: 'db' }, 502);
-    return json({ ok: true, service: 'sod-reserve', closeTime, events });
+    const savedFee = await settingSet('FEE', JSON.stringify(fee));
+    if (!savedClose || !savedEvents || !savedFee) return json({ ok: false, error: 'db' }, 502);
+    return json({ ok: true, service: 'sod-reserve', closeTime, events, fee });
   }
 
   /* จองใหม่ — ถ้าร้านปิดรับจองของวันนั้นแล้ว ต้องปฏิเสธที่หลังบ้านด้วย
@@ -464,16 +556,24 @@ async function handlePost(req: Request, params: URLSearchParams): Promise<Respon
   if (problem) return json({ ok: false, error: problem });
 
   const code = String(payload.code).slice(0, 24);
+  /* ศุกร์/เสาร์/วันอีเว้น = ต้องชำระค่าบริการก่อน ร้านจึงยืนยัน (ไม่ auto-confirm) */
+  const feeState = feeOf(String(payload.date), cfg);
+  const partyCount = Number(payload.party) || 1;
+  const feeTotal = feeState.needed
+    ? (feeState.per === 'person' ? feeState.amount * partyCount : feeState.amount)
+    : 0;
   const row = {
     code,
     name: String(payload.name).trim().slice(0, 60),
     phone: String(payload.phone),
     date: String(payload.date),
     time: String(payload.time).slice(0, 5),
-    party: Number(payload.party) || 1,
+    party: partyCount,
     note: String(payload.note || '').slice(0, 200),
-    status: BOOKING_STATUS,
+    status: feeTotal > 0 ? STATUSES[0] : BOOKING_STATUS,
     table_label: String(payload.table || '').toUpperCase().slice(0, 40),
+    fee: feeTotal,
+    paid: feeTotal <= 0,
   };
 
   const res = await sb('reservations?on_conflict=code', {
@@ -496,8 +596,19 @@ async function handlePost(req: Request, params: URLSearchParams): Promise<Respon
   if (!saved.length) return json({ ok: true, code, duplicate: true });
 
   /* แจ้งเข้ากลุ่ม LINE — ล้มเหลวก็ไม่ทำให้การจองหาย */
-  await notifyLine(payload);
-  return json({ ok: true, code, status: BOOKING_STATUS, row: 1 });
+  await notifyLine({
+    ...payload,
+    fee: feeTotal,
+    feeLabel: feeState.label,
+    feePay: feeState.pay,
+  });
+  return json({
+    ok: true,
+    code,
+    status: row.status,
+    row: 1,
+    fee: feeTotal > 0 ? { ...feeState, total: feeTotal } : null,
+  });
 }
 
 /* ── GET ───────────────────────────────────────────────────── */
@@ -521,7 +632,14 @@ async function handleGet(params: URLSearchParams): Promise<Response> {
   /* ตารางปิดจอง/อีเว้น — ไม่มีข้อมูลลูกค้า จึงไม่ต้อง token */
   if (action === 'config') {
     const cfg = await shopConfig();
-    return json({ ok: true, service: 'sod-reserve', closeTime: cfg.closeTime, events: cfg.events, today: bkkToday() });
+    return json({
+      ok: true,
+      service: 'sod-reserve',
+      closeTime: cfg.closeTime,
+      events: cfg.events,
+      fee: cfg.fee,
+      today: bkkToday(),
+    });
   }
 
   if (action === 'linetest') {
