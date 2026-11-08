@@ -18,7 +18,7 @@
       if (localStorage.getItem('sod-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
     } catch (e) {}
   </script>
-  <link rel="stylesheet" href="./style.css?v=1.1.17" />
+  <link rel="stylesheet" href="./style.css?v=1.1.19" />
 </head>
 <body class="jnl-page">
   <header class="site-header">
@@ -270,7 +270,12 @@
     } catch (err) {
       Array.prototype.forEach.call(buttons, function (item) { item.disabled = false; });
       el.notice.hidden = false;
-      el.notice.textContent = 'เปลี่ยนสถานะไม่สำเร็จ — ' + friendlyError(err);
+      /* บิลด์เก่ายังไม่มีคำสั่ง set-status → ตกลงไปที่ด่านตรวจการจองแล้วตอบ 'invalid name'
+         ซึ่งไม่ใช่ความผิดของคนกด จึงต้องบอกให้ชัดว่าต้อง deploy ใหม่ */
+      const problem = String((err && err.message) || err || '');
+      el.notice.textContent = /invalid name|missing code/.test(problem)
+        ? 'เปลี่ยนสถานะไม่สำเร็จ — ฟังก์ชันหลังบ้านยังเป็นเวอร์ชันเก่า (ยังไม่มีคำสั่งเปลี่ยนสถานะ) ต้อง deploy โค้ดล่าสุดก่อน'
+        : 'เปลี่ยนสถานะไม่สำเร็จ — ' + friendlyError(err);
     }
   }
 

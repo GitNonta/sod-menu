@@ -141,7 +141,7 @@ curl -s -X POST "$URL" -H 'Content-Type: application/json' \
 ## 8. ค่าที่ฟังก์ชันตอบ (สัญญาเดียวกับ Apps Script)
 
 ```
-GET  ?action=status                      → { ok, service, bookings, tab }
+GET  ?action=status                      → { ok, service, build, bookings, tab }
 GET  ?action=busy&date=YYYY-MM-DD        → { ok, date, busy:[{table,time}] }
                                             โต๊ะที่ร้านล็อค: { table, time:"", note, locked:true }
 GET  ?action=list&date=…&token=…         → { ok, date, count, people, rows:[{code,name,phone,date,time,party,note,status,table,created_at}] }

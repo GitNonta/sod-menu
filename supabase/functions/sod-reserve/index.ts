@@ -37,6 +37,8 @@ const SOD_TOKEN = (Deno.env.get('SOD_TOKEN') || '').trim();
    อยากตรวจก่อนค่อยตั้ง secret AUTO_CONFIRM=off → การจองจะเข้าเป็น 'รอยืนยัน' */
 const AUTO_CONFIRM = (Deno.env.get('AUTO_CONFIRM') || 'on').trim().toLowerCase() !== 'off';
 const BOOKING_STATUS = AUTO_CONFIRM ? STATUSES[1] : STATUSES[0];
+/* ตราประทับบิลด์ — `?action=status` ตอบค่านี้กลับไป จะรู้ทันทีว่า deploy ใหม่ขึ้นหรือยัง */
+const BUILD = '2026-11-08';
 
 const CORS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -407,7 +409,7 @@ async function handleGet(params: URLSearchParams): Promise<Response> {
   const res = await sb('reservations?select=code&limit=1', { headers: { Prefer: 'count=exact' } });
   if (!res.ok) return json({ ok: false, error: `db ${res.status}` }, 502);
   const total = Number(String(res.headers.get('content-range') || '').split('/')[1] || 0);
-  return json({ ok: true, service: 'sod-reserve', bookings: total, tab: 'reservations' });
+  return json({ ok: true, service: 'sod-reserve', build: BUILD, bookings: total, tab: 'reservations' });
 }
 
 Deno.serve(async (req: Request) => {
