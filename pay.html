@@ -271,7 +271,8 @@
     var parts = String(iso || '').split('-');
     if (parts.length !== 3) return iso || '—';
     var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-    return THAI_DAYS[d.getDay()] + '. ' + Number(parts[2]) + ' ' + (THAI_MONTHS[Number(parts[1]) - 1] || '') + ' ' + (Number(parts[0]) + 543);
+    /* THAI_DAYS มีจุดมาแล้ว ("ศ.") — เติมจุดซ้ำจะกลายเป็น "ศ.." บนบัตรจอง */
+    return THAI_DAYS[d.getDay()] + ' ' + Number(parts[2]) + ' ' + (THAI_MONTHS[Number(parts[1]) - 1] || '') + ' ' + (Number(parts[0]) + 543);
   }
 
   function money(n) { return '฿' + Number(n || 0).toLocaleString('th-TH'); }
