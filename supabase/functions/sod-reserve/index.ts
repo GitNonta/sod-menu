@@ -2,12 +2,12 @@
  * SOD! signature — ตัวรับจองโต๊ะ (Supabase Edge Function, Deno/TypeScript)
  * ----------------------------------------------------------------------
  * ทำหน้าที่แทน reserve-webhook.gs ทุกประการ: สัญญาเดียวกับที่หน้าเว็บเรียกอยู่
- *   POST  <fn-url>                                   จองใหม่ (body JSON จาก app.js)
+ *   POST  <fn-url>                                   จองใหม่ (body JSON จาก app.js) — ไม่ต้อง token
  *   GET   ?action=status                             เช็กว่าติดตั้งแล้ว
  *   GET   ?action=busy&date=YYYY-MM-DD               โต๊ะไม่ว่าง (ไม่ต้อง token)
  *   GET   ?action=list&date=YYYY-MM-DD&token=…       รายการจองของวัน (ต้อง token)
  *   GET   ?action=locks&date=YYYY-MM-DD&token=…      โต๊ะที่ร้านล็อค (ต้อง token)
- *   POST  { action:'lock'|'unlock', token, date, tables:[], note }
+ *   POST  { action:'lock'|'unlock', token, date, tables:[], note }   (ต้อง token)
  *   GET   ?action=linetest&token=…                   ส่งข้อความทดสอบเข้า LINE
  *   POST  body ที่มี "events" (LINE webhook)          จด groupId ลงตาราง settings
  *
@@ -259,12 +259,14 @@ async function handlePost(req: Request, params: URLSearchParams): Promise<Respon
   }
   if (!payload) return json({ ok: false, error: 'empty body' });
 
-  const sent = String(params.get('token') || payload.token || '');
-  if (!authorized(sent)) return json({ ok: false, error: 'unauthorized' }, 401);
-
   const action = String(payload.action || '');
+  const sent = String(params.get('token') || payload.token || '');
 
+  /* ล็อค/ปลดล็อคโต๊ะ = งานของร้าน ต้องมี token
+     ส่วนการจองจากหน้าเว็บเป็นสาธารณะ: ถ้าบังคับ token ด้วย หน้าเว็บต้องฝัง token
+     ไว้ใน menu.json ที่ใครก็อ่านได้ ซึ่งเปิดช่องให้ดึงรายชื่อ/เบอร์ลูกค้าออกไป */
   if (action === 'lock' || action === 'unlock') {
+    if (!authorized(sent)) return json({ ok: false, error: 'unauthorized' }, 401);
     const date = dayStr(payload.date);
     const tables = cleanTables(payload.tables ?? payload.table);
     if (!tables.length) return json({ ok: false, error: 'missing table' });

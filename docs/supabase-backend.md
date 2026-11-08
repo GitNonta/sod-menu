@@ -10,7 +10,7 @@
 | ค่าใช้จ่าย | ฟรี | Free: 500 MB DB, หยุดโปรเจกต์ถ้าไม่มี activity 7 วัน · Pro $25/เดือน ไม่หยุด |
 | URL ที่ใช้ | `…/macros/s/<ID>/exec` | `https://<ref>.supabase.co/functions/v1/sod-reserve` |
 | แก้หน้าเว็บ | – | **ไม่ต้องแก้** (เปลี่ยนแค่ค่า `webhook`) |
-| ป้องกันข้อมูลลูกค้า | token เดียว ใช้ทั้งอ่าน/เขียน | `SOD_TOKEN` ตรวจฝั่งเซิร์ฟเวอร์, `service_role` ไม่เคยไปถึงเบราว์เซอร์, เปิด RLS ไว้ |
+| ป้องกันข้อมูลลูกค้า | token เดียว ใช้ทั้งอ่าน/เขียน → ต้องฝังใน `menu.json` ที่ใครก็อ่านได้ | `SOD_TOKEN` ใช้เฉพาะงานของร้าน (list/locks/lock/unlock/linetest); **การจองจากหน้าเว็บไม่ต้องใช้ token** จึงไม่ต้องฝัง token ที่ไหน, `service_role` ไม่เคยไปถึงเบราว์เซอร์, เปิด RLS ไว้ |
 | กันจองซ้ำโต๊ะ | ไม่มี | unique index `(date, table_label)` |
 | ดูข้อมูล | เปิด Sheet | Table Editor / SQL / รายงาน |
 | ตอนแก้โค้ด | Deploy → New version ทุกครั้ง | deploy ฟังก์ชันใหม่ (ไม่มีปัญหาเวอร์ชันค้าง) |
@@ -79,13 +79,19 @@ URL ที่ได้: `https://<ref>.supabase.co/functions/v1/sod-reserve`
 แก้ `data/menu.json`
 
 ```json
-"webhook": "https://<ref>.supabase.co/functions/v1/sod-reserve?token=sod-xxxxxxxxxxxxxxxxxxxxxxxx"
+"webhook": "https://<ref>.supabase.co/functions/v1/sod-reserve"
 ```
+
+> **ไม่ต้องมี `?token=` ต่อท้าย** — ฟังก์ชันนี้อนุญาตให้ POST จองจากหน้าเว็บโดยไม่ต้องมี token
+> (เหมือนฟอร์มจองของร้านทั่วไป) ส่วนการอ่านรายชื่อ/ล็อคโต๊ะยังต้องมี token
+> ถ้าใส่ token ต่อท้าย URL นี้ token จะกลายเป็นข้อมูลสาธารณะ (ใครเปิดเว็บก็อ่าน `menu.json` ได้
+> แล้วเอาไปเรียก `?action=list` ดูชื่อ/เบอร์ลูกค้าได้)
 
 แล้ว bump เวอร์ชัน 3 ที่ตามกฎของรีโป (`version` ใน `menu.json`, `ASSET_VERSION` ใน `app.js`,
 `?v=` ของ `style.css`/`app.js` ใน `index.html` และ `today.html`)
 
-หน้า `today.html` ใช้รหัสผ่านร้านตัวเดียวกัน (`SOD_TOKEN`) — พนักงานกรอกรหัสเดิมได้เลย
+หน้า `today.html` ใช้รหัสผ่านร้านตัวเดียวกัน (`SOD_TOKEN`) — พนักงานกรอกในช่อง “รหัสผ่านร้าน”
+หนึ่งครั้ง (จำใน `localStorage`) หรือเปิดด้วยลิงก์ `today.html?token=<SOD_TOKEN>`
 
 ## 6. ทดสอบ (แทนที่ `$URL` และ `$TOK`)
 
@@ -104,10 +110,11 @@ curl -s "$URL?action=linetest&token=$TOK"        # {"ok":true,"line":"sent"} ←
 ยิงจองทดสอบ (ต้องได้ `ok:true` และเห็นแถวใหม่ใน Table Editor)
 
 ```bash
-curl -s -X POST "$URL?token=$TOK" -H 'Content-Type: application/json' -d '{
+curl -s -X POST "$URL" -H 'Content-Type: application/json' -d '{
   "source":"sod-menu","code":"SOD-TEST01","name":"ทดสอบระบบ","phone":"0800000000",
   "date":"'"$D"'","time":"19:30","party":2,"note":"ยิงทดสอบ","table":"24"
 }'
+# ไม่ใส่ token ก็ต้องได้ ok:true — ถ้าได้ 401 แปลว่าโค้ดที่ deploy ยังเป็นเวอร์ชันเก่า
 ```
 
 ล็อค/ปลดล็อคโต๊ะ
@@ -139,8 +146,9 @@ GET  ?action=busy&date=YYYY-MM-DD        → { ok, date, busy:[{table,time}] }
                                             โต๊ะที่ร้านล็อค: { table, time:"", note, locked:true }
 GET  ?action=list&date=…&token=…         → { ok, date, count, people, rows:[{code,name,phone,date,time,party,note,status,table,created_at}] }
 GET  ?action=locks&date=…&token=…        → { ok, date, locks:[{table,note,at}] }
-POST {…จอง…}                             → { ok, code, row } | { ok:true, duplicate:true }
-POST { action:"lock"|"unlock", … }       → { ok, action, date, changed:[…], locks:[…] }
+POST {…จอง…}                             → { ok, code, row } | { ok:true, duplicate:true }   (ไม่ต้อง token)
+POST { action:"lock"|"unlock", … }       → { ok, action, date, changed:[…], locks:[…] }     (ต้อง token)
+POST { events:[…] } (LINE webhook)        → { ok, line:"captured", to }                     (ไม่ต้อง token)
 ```
 
 ## 9. อาการผิด → แก้
@@ -148,10 +156,10 @@ POST { action:"lock"|"unlock", … }       → { ok, action, date, changed:[…]
 | อาการ | สาเหตุ | แก้ |
 | --- | --- | --- |
 | `404` ตอนยิง URL | ยังไม่ deploy หรือชื่อฟังก์ชันไม่ใช่ `sod-reserve` | Deploy ใหม่, ตรวจ path `/functions/v1/sod-reserve` |
-| `401` ทุกครั้ง | `SOD_TOKEN` ไม่ตรงกับ `?token=` ใน `menu.json` | ตั้ง secret ใหม่ + แก้ `webhook` ให้ตรง |
+| `401` เฉพาะหน้า `today.html` / `?action=list` | พนักงานกรอกรหัสไม่ตรงกับ `SOD_TOKEN` | กรอกใหม่ให้ตรง secret (การจองจากหน้าเว็บไม่ใช้ token จึงไม่โดน 401) |
 | `{ "ok": false, "error": "db 401" }` | ฟังก์ชันอ่าน service role key ไม่ได้ | ตรวจว่า deploy ผ่าน Dashboard ของโปรเจกต์นั้น (ไม่ใช่ self-host) |
 | `db 404` / `relation does not exist` | ยังไม่รัน `schema.sql` | รันข้อ 2 |
-| หน้าจองขึ้น “ส่งอัตโนมัติไม่สำเร็จ” | โดน unique index (โต๊ะถูกจองแล้ว) หรือ token ผิด | เลือกโต๊ะอื่น / ตรวจ token |
+| หน้าจองขึ้น “ส่งอัตโนมัติไม่สำเร็จ” | โดน unique index (โต๊ะถูกจองแล้ว) หรือ `webhook` ผิด/ฟังก์ชันยังไม่ deploy | เลือกโต๊ะอื่น / ยิง `?action=busy` เช็ก URL |
 | ไม่มีแจ้งเตือน LINE | ไม่มี secret หรือบอทไม่อยู่กลุ่ม | ทำข้อ 7 |
 | หลัง 7 วันไม่ได้ใช้แล้ว endpoint ตาย | Free plan pause | Dashboard → กด **Restore/Unpause** (ข้อมูลไม่หาย) หรืออัปเกรด Pro |
 | หน้า today.html ขึ้น “โหลดรายการไม่สำเร็จ (unauthorized)” | รหัสพนักงานไม่ตรง | กรอก `SOD_TOKEN` ใหม่ |

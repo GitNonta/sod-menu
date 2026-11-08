@@ -57,6 +57,11 @@ echo "sod-$(openssl rand -hex 12)"      # → sod-6453150c9f31d2f93f49bfa4
 | 3 | `today.html` → ช่อง “รหัสผ่านร้าน” (หรือ `today.html?token=…`) |
 | 4 | (ถ้าใช้ LINE) Webhook URL ใน LINE Developers → `?token=…` |
 
+**ถ้าใช้ Supabase แทน Apps Script:** ไม่ต้องฝัง token ใน `menu.json` — ฟังก์ชันเปิดให้เว็บ
+ส่งการจองได้โดยไม่ต้องมี token ใช้ `SOD_TOKEN` เฉพาะหน้า `today.html` (ช่อง “รหัสผ่านร้าน”)
+และ URL ของ LINE webhook เท่านั้น (ฉะนั้นในตาราง 4 จุดข้างบน ข้อ 2 ไม่ต้องทำ และข้อ 1 เปลี่ยนเป็น
+Edge Function Secrets)
+
 **ถ้าไม่ใส่:** `doPost` จะไม่ตรวจสิทธิ์ (ใครรู้ URL ก็ยิงจองปลอมได้) และ `action=list` / `action=locks`
 จะตอบ error → หน้า `today.html` ใช้ไม่ได้ **จึงควรใส่เสมอ**
 

@@ -14,7 +14,7 @@ app.js              โหลด data/menu.json แล้ว render ทั้ง
                     + ปุ่มสลับธีม สว่าง/มืด (จำค่าใน localStorage คีย์ `sod-theme`)
                     + ช่วงเวลาโปร ก่อน/หลังเที่ยงคืน (จำค่าใน localStorage คีย์ `sod-promo-mode`)
 data/menu.json      แหล่งข้อมูลเดียว: หมวด, เมนู, ราคา, โปรโมชัน, ตั้งค่าจองโต๊ะ, version
-today.html          หน้ารายการจองของวันสำหรับพนักงาน (อ่านจาก Google Sheet ผ่าน Apps Script + token)
+today.html          หน้ารายการจองของวันสำหรับพนักงาน (อ่านจาก Apps Script หรือ Supabase Edge Function ที่ตั้งใน shop.reserve.webhook + token)
 images/             รูปสินค้า (พื้นหลังโปร่งใส) + logo.jpg + favicon.png + floorplan.jpg (ผังโต๊ะ)
 reserve-webhook.gs  ตัวรับการจอง (Google Apps Script) สำหรับต่อ Google Sheet
 supabase/           ทางเลือกแทน Apps Script: schema.sql + functions/sod-reserve/ (Edge Function)
