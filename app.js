@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.38';
+  const ASSET_VERSION = '1.0.39';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1865,6 +1865,12 @@
       if (due) {
         resetSlipUI();
         startHoldTimer(fee);
+        /* สลิปถูกส่งไปแล้ว (เช่น เปิดใบจองเดิมหลังรีหน้า) → ไม่ต้องให้ส่งซ้ำ */
+        if (fee.slipStatus === 'รอตรวจ') {
+          if (el.reserveSlipSend) el.reserveSlipSend.hidden = true;
+          if (el.reserveSlipDrop) el.reserveSlipDrop.hidden = true;
+          slipSay('ได้รับสลิปแล้ว ✓ ร้านกำลังตรวจสอบ จะยืนยันการจองให้หลังตรวจเสร็จ', false);
+        }
         /* หน้าชำระเงินเต็มรูปแบบ: ยอด + ช่องทางโอน + แนบสลิป (pay.html) */
         if (el.reservePayLink) el.reservePayLink.href = `./pay.html?code=${encodeURIComponent(rec.code)}`;
         el.reservePayAmount.textContent = `฿${due.toLocaleString('th-TH')}`;
@@ -2071,6 +2077,7 @@
 
   function resetSlipUI() {
     slipPicked = '';
+    if (el.reserveSlipDrop) el.reserveSlipDrop.hidden = false;
     if (el.reserveSlipFile) el.reserveSlipFile.value = '';
     if (el.reserveSlipPreview) el.reserveSlipPreview.hidden = true;
     if (el.reserveSlipSend) {
@@ -2163,6 +2170,18 @@
           const due = Number(order.total) || 0;
           if (order.paid || order.status === 'ยืนยันแล้ว') {
             status = 'ชำระเงินแล้ว — การจองยืนยันสำเร็จ แสดงรหัสนี้กับพนักงานที่ร้าน';
+          } else if (order.slipStatus === 'รอตรวจ') {
+            status = 'ส่งสลิปแล้ว — รอร้านตรวจสอบและยืนยันการจอง';
+            fee = {
+              total: due,
+              amount: Number(order.amount) || due,
+              per: order.per || 'table',
+              pay: order.pay || '',
+              note: order.note || '',
+              expiresAt: order.expiresAt || '',
+              holdMinutes: Number(order.holdMinutes) || 15,
+              slipStatus: 'รอตรวจ',
+            };
           } else if (order.expired) {
             status = 'หมดเวลาชำระเงิน — การจองนี้ถูกยกเลิกและคืนโต๊ะแล้ว กรุณาจองใหม่';
           } else if (due > 0) {
