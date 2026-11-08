@@ -41,7 +41,7 @@ const SOD_TOKEN = (Deno.env.get('SOD_TOKEN') || '').trim();
 const AUTO_CONFIRM = (Deno.env.get('AUTO_CONFIRM') || 'on').trim().toLowerCase() !== 'off';
 const BOOKING_STATUS = AUTO_CONFIRM ? STATUSES[1] : STATUSES[0];
 /* ตราประทับบิลด์ — `?action=status` ตอบค่านี้กลับไป จะรู้ทันทีว่า deploy ใหม่ขึ้นหรือยัง */
-const BUILD = '2026-11-08.2';
+const BUILD = '2026-11-08.3';
 
 const CORS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -85,15 +85,19 @@ async function sb(path: string, init: RequestInit = {}): Promise<SbResult> {
 const enc = (value: string) => encodeURIComponent(value);
 
 /* ── ตาราง/อีเว้นของร้าน เก็บใน settings (key/value ที่มีอยู่แล้ว) ──
-   CLOSE_TIME = 'HH:MM' เวลาที่ปิดรับจองของ “วันนั้น” (ว่าง = รับจองตลอด)
+   CLOSE_TIME = 'HH:MM' เวลาปิดรับจอง *ทุกวัน* (ไม่มีแถว = 20:00, ค่าว่าง = รับจองตลอด)
    EVENTS     = JSON [{ date, name, lock }] — lock:true = วันนั้นปิดการจองทั้งวัน */
 type ShopEvent = { date: string; name: string; lock: boolean };
 type ShopConfig = { closeTime: string; events: ShopEvent[] };
 
-async function settingGet(key: string): Promise<string> {
+/** ร้านปิดรับจองทุกวันสองทุ่ม จนกว่าจะแก้ใน today.html */
+const DEFAULT_CLOSE_TIME = '20:00';
+
+/** null = ยังไม่เคยตั้งค่า (ใช้ค่ามาตรฐาน), '' = ตั้งใจลบเวลาออก (รับจองตลอด) */
+async function settingGet(key: string): Promise<string | null> {
   const res = await sb(`settings?key=eq.${enc(key)}&select=value&limit=1`);
   const rows = Array.isArray(res.data) ? (res.data as Json[]) : [];
-  return rows.length ? String(rows[0].value ?? '') : '';
+  return rows.length ? String(rows[0].value ?? '') : null;
 }
 
 async function settingSet(key: string, value: string): Promise<boolean> {
@@ -127,17 +131,20 @@ async function shopConfig(): Promise<ShopConfig> {
   } catch {
     events = [];
   }
-  const closeTime = closeRaw.trim();
-  return { closeTime: /^\d{2}:\d{2}$/.test(closeTime) ? closeTime : '', events };
+  /* ไม่มีแถวในฐานข้อมูล = ปิดทุกวัน 20:00 ตามค่ามาตรฐานของร้าน
+     แต่ถ้าร้านลบเวลาออกเอง (ค่าว่าง) = รับจองตลอดวัน */
+  const stored = closeRaw === null ? DEFAULT_CLOSE_TIME : closeRaw.trim();
+  return { closeTime: /^\d{2}:\d{2}$/.test(stored) ? stored : '', events };
 }
 
 /** วันนั้นปิดรับจองหรือยัง — อีเว้นที่ล็อคชนะเวลาปิดจองเสมอ */
 function closureOf(date: string, cfg: ShopConfig): { closed: boolean; reason: string; event: ShopEvent | null } {
   const event = cfg.events.find((row) => row.date === date && row.lock) || null;
   if (event) return { closed: true, reason: 'event', event };
-  if (cfg.closeTime && date === bkkToday()) {
-    const nowHM = new Date(Date.now() + TZ_OFFSET_MS).toISOString().slice(11, 16);
-    if (nowHM >= cfg.closeTime) return { closed: true, reason: 'time', event: null };
+  /* ปิดทุกวันตามเวลาที่ร้านตั้ง — เทียบเวลาจริงของวันนั้น (ค่าเริ่มต้น 20:00) */
+  if (cfg.closeTime) {
+    const cut = Date.parse(`${date}T${cfg.closeTime}:00+07:00`);
+    if (Number.isFinite(cut) && Date.now() >= cut) return { closed: true, reason: 'time', event: null };
   }
   return { closed: false, reason: '', event: null };
 }

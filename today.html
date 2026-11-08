@@ -18,7 +18,7 @@
       if (localStorage.getItem('sod-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
     } catch (e) {}
   </script>
-  <link rel="stylesheet" href="./style.css?v=1.1.30" />
+  <link rel="stylesheet" href="./style.css?v=1.1.31" />
 </head>
 <body class="jnl-page">
   <header class="site-header">
@@ -86,7 +86,7 @@
     <section class="jnl__lock" id="jnlSchedule" hidden>
       <h2 class="jnl__lock-title">เวลาปิดจอง &amp; วันอีเว้น</h2>
       <p class="jnl__lock-note">
-        ตั้งเวลาปิดรับจองของวันนี้ — พอเลยเวลา ผังฝั่งลูกค้าจะเป็นสีแดง “ปิดรับจองแล้ว” และกดจองไม่ได้ (walk-in เท่านั้น)
+        ปิดรับจอง <strong>ทุกวันเวลา 20:00 น.</strong> (ค่าเริ่มต้น) — เปลี่ยนเป็นเวลาอื่นได้ หรือเว้นว่าง = รับจองตลอดวัน พอเลยเวลา ผังฝั่งลูกค้าจะเป็นสีแดง “ปิดรับจองแล้ว” และกดจองไม่ได้ (walk-in เท่านั้น)
       </p>
       <form class="jnl__lock-form" id="jnlCloseForm">
         <input class="field__input" id="jnlClose" type="time" aria-label="เวลาปิดรับจอง" />
