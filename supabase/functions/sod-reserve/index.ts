@@ -46,7 +46,7 @@ const SOD_TOKEN = (Deno.env.get('SOD_TOKEN') || '').trim();
 const AUTO_CONFIRM = (Deno.env.get('AUTO_CONFIRM') || 'on').trim().toLowerCase() !== 'off';
 const BOOKING_STATUS = AUTO_CONFIRM ? STATUSES[1] : STATUSES[0];
 /* ตราประทับบิลด์ — `?action=status` ตอบค่านี้กลับไป จะรู้ทันทีว่า deploy ใหม่ขึ้นหรือยัง */
-const BUILD = '2026-11-08.6';
+const BUILD = '2026-11-08.7';
 
 /* สลิปโอนเงิน: เก็บใน Storage bucket ส่วนตัว — อ่านได้เฉพาะผ่านฟังก์ชันนี้ (ต้อง token ร้าน) */
 const SLIP_BUCKET = 'slips';
@@ -166,7 +166,8 @@ function cleanFee(raw: unknown): ShopFee {
   return {
     enabled: row.enabled !== false && amount > 0,
     amount,
-    per: row.per === 'booking' ? 'booking' : 'person',
+    /* person = ต่อคน · table = ต่อโต๊ะ (คูณจำนวนโต๊ะที่เลือก) · booking = ยอดเดียวต่อการจอง */
+    per: row.per === 'table' ? 'table' : row.per === 'booking' ? 'booking' : 'person',
     pay: String(row.pay || '').trim().slice(0, 160),
     note: String(row.note || '').trim().slice(0, 160),
   };
@@ -723,8 +724,13 @@ async function handlePost(req: Request, params: URLSearchParams): Promise<Respon
   /* ศุกร์/เสาร์/วันอีเว้น = ต้องชำระค่าบริการก่อน ร้านจึงยืนยัน (ไม่ auto-confirm) */
   const feeState = feeOf(String(payload.date), cfg);
   const partyCount = Number(payload.party) || 1;
+  const tableCount = Math.max(1, cleanTables(payload.table).length);
   const feeTotal = feeState.needed
-    ? (feeState.per === 'person' ? feeState.amount * partyCount : feeState.amount)
+    ? (feeState.per === 'person'
+      ? feeState.amount * partyCount
+      : feeState.per === 'table'
+        ? feeState.amount * tableCount
+        : feeState.amount)
     : 0;
   const row = {
     code,

@@ -5,7 +5,7 @@
   'use strict';
 
   // Bump together with "version" in data/menu.json so browsers drop the cache.
-  const ASSET_VERSION = '1.0.35';
+  const ASSET_VERSION = '1.0.36';
   const DATA_URL = './data/menu.json';
   const AUTOPLAY_MS = 6500;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1295,7 +1295,9 @@
     const amount = Number(planFee.amount) || 0;
     if (amount <= 0) return 0;
     const party = Number(el.reserveParty && el.reserveParty.value) || 1;
-    return planFee.per === 'person' ? amount * party : amount;
+    if (planFee.per === 'person') return amount * party;
+    if (planFee.per === 'table') return amount * Math.max(1, pickedTables.length);
+    return amount;
   }
 
   /* ปุ่มหลักของฟอร์มจอง: มีค่าบริการ = “ชำระเงิน ฿X”, ไม่มี = “ยืนยันการจอง” */
@@ -1466,7 +1468,7 @@
       el.planFee.textContent = '';
       return;
     }
-    const unit = planFee.per === 'booking' ? 'ต่อการจอง' : 'ต่อคน';
+    const unit = planFee.per === 'table' ? 'ต่อโต๊ะ' : planFee.per === 'booking' ? 'ต่อการจอง' : 'ต่อคน';
     el.planFee.hidden = false;
     el.planFee.textContent =
       `${planFee.label || 'วันนี้'} มีค่าบริการจอง ฿${planFee.amount} ${unit}` +

@@ -18,7 +18,7 @@
       if (localStorage.getItem('sod-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
     } catch (e) {}
   </script>
-  <link rel="stylesheet" href="./style.css?v=1.1.35" />
+  <link rel="stylesheet" href="./style.css?v=1.1.36" />
 </head>
 <body class="jnl-page">
   <header class="site-header">
@@ -116,6 +116,7 @@
       <form class="jnl__lock-form" id="jnlFeeForm">
         <input class="field__input" id="jnlFeeAmount" type="number" min="0" max="100000" step="10" placeholder="ค่าบริการ (บาท)" aria-label="ค่าบริการ (บาท)" />
         <select class="field__input" id="jnlFeePer" aria-label="คิดค่าบริการต่ออะไร">
+          <option value="table">ต่อโต๊ะ</option>
           <option value="person">ต่อคน</option>
           <option value="booking">ต่อการจอง</option>
         </select>
@@ -669,7 +670,7 @@
     const fee = schedule.fee || {};
     if (sched.feeOn) sched.feeOn.checked = !!fee.enabled;
     if (sched.feeAmount) sched.feeAmount.value = fee.amount ? String(fee.amount) : '';
-    if (sched.feePer) sched.feePer.value = fee.per === 'booking' ? 'booking' : 'person';
+    if (sched.feePer) sched.feePer.value = fee.per === 'table' ? 'table' : fee.per === 'booking' ? 'booking' : 'person';
     if (sched.feePay) sched.feePay.value = fee.pay || '';
     if (sched.feeNote) sched.feeNote.value = fee.note || '';
     if (sched.evList) {
@@ -852,7 +853,7 @@
       const fee = readFeeForm();
       sched.feeBtn.disabled = true;
       saveSchedule(fee.enabled && fee.amount > 0
-        ? 'เปิดค่าบริการ ฿' + fee.amount + (fee.per === 'booking' ? ' ต่อการจอง' : ' ต่อคน') + ' สำหรับศุกร์/เสาร์/วันอีเว้น'
+        ? 'เปิดค่าบริการ ฿' + fee.amount + (fee.per === 'table' ? ' ต่อโต๊ะ' : fee.per === 'booking' ? ' ต่อการจอง' : ' ต่อคน') + ' สำหรับศุกร์/เสาร์/วันอีเว้น'
         : 'ปิดค่าบริการจองแล้ว').then(function () {
         sched.feeBtn.disabled = false;
       });
