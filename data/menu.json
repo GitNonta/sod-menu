@@ -1,5 +1,5 @@
 {
-  "version": "1.0.13",
+  "version": "1.0.14",
   "shop": {
     "name": "SOD! signature",
     "currency": "฿",
@@ -22,7 +22,7 @@
       "close_time": "02:00",
       "max_party": 20,
       "max_days": 30,
-      "webhook": "",
+      "webhook": "https://tfplfctgyfiyxqekobet.supabase.co/functions/v1/rapid-worker?token=Nontawat_01",
       "line_url": "",
       "phone": "",
       "plan": {
